@@ -1,7 +1,5 @@
 # settings
 .settings/
-.cproject
-.project
 *.launch
 
 # build
