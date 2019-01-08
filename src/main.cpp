@@ -38,6 +38,7 @@
   */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <cstring>
 #include "stm32f1xx_hal.h"
 #include "diag/Trace.h"
 
@@ -72,18 +73,21 @@ static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
 
 extern "C" {
-	void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+  void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+  void USART1_IRQHandler(void);
 }
                                 
                                 
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+void message_received_callback(void);
+void reset_buffer(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-
+char rec_buffer[100];
+bool message_received;
 /* USER CODE END 0 */
 
 /**
@@ -122,9 +126,17 @@ int main(void)
   MX_TIM3_Init();
   MX_USART1_UART_Init();
 
-  trace_printf("Hello World!");
+  HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
+  trace_printf("%d\n", sizeof(rec_buffer));
 
   while (1) {
+    if (message_received) {
+      trace_printf("Messaged received: %s", rec_buffer);
+      HAL_UART_Transmit(&huart1, (u_int8_t*)"OK", 2, HAL_MAX_DELAY);
+      message_received = false;
+      reset_buffer();
+    }
+
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
 	  HAL_Delay(500);
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
@@ -132,6 +144,43 @@ int main(void)
 
   }
 
+}
+
+void reset_buffer() {
+  huart1.RxXferCount = sizeof(rec_buffer);
+  memset(rec_buffer, 0, sizeof(rec_buffer));
+  huart1.pRxBuffPtr = (u_int8_t*)rec_buffer;
+}
+
+void USART1_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART1_IRQn 0 */
+
+  /* USER CODE END USART1_IRQn 0 */
+  HAL_UART_IRQHandler(&huart1);
+
+  /* USER CODE BEGIN USART1_IRQn 1 */
+  char last = rec_buffer[strlen(rec_buffer)-1];
+
+  if (last = '\n') {
+    message_received = true;
+  };
+
+  /* USER CODE END USART1_IRQn 1 */
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
+
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart) {
+  __NOP();
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+  if (huart->ErrorCode == HAL_UART_ERROR_ORE) {
+    HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
+  }
 }
 
 /**
@@ -375,7 +424,7 @@ static void MX_USART1_UART_Init(void)
 {
 
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 9600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
