@@ -86,7 +86,7 @@ void reset_buffer(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-char rec_buffer[100];
+char rec_buffer[50];
 bool message_received;
 /* USER CODE END 0 */
 
@@ -129,10 +129,29 @@ int main(void)
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
   trace_printf("%d\n", sizeof(rec_buffer));
 
+  int it = 0;
+
   while (1) {
     if (message_received) {
       trace_printf("Messaged received: %s", rec_buffer);
-      HAL_UART_Transmit(&huart1, (u_int8_t*)"OK", 2, HAL_MAX_DELAY);
+
+      if (strncmp(rec_buffer, "POLL", 4) == 0) {
+//        char* status = "OK 10,5,15,40,50,60";
+        char* status;
+        if (it == 0) {
+          status = "BUSY";
+        } else if (it == 1) {
+          status = "INPR";
+        } else {
+          status = "OK 10,5,15,40,50,60";
+        }
+        it++;
+        HAL_UART_Transmit(&huart1, (u_int8_t*)status, strlen(status), HAL_MAX_DELAY);
+
+      } else {
+        HAL_UART_Transmit(&huart1, (u_int8_t*)"UNKNOWN", 2, HAL_MAX_DELAY);
+      }
+
       message_received = false;
       reset_buffer();
     }
