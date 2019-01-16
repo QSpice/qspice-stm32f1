@@ -62,7 +62,7 @@ uint16_t Ultrasonic::ping() {
   // quit if measurement takes too long
   uint16_t max_time = HAL_GetTick() + 2;
 
-  while (!echo_start || !echo_end || HAL_GetTick() > max_time);
+  while ((!echo_start || !echo_end) && HAL_GetTick() < max_time);
 
   return echo_start == 0 || echo_end == 0 ? NO_ECHO : echo_end - echo_start;
 }
