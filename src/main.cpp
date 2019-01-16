@@ -141,6 +141,9 @@ int main(void)
 void SystemClock_Config(void)
 {
 
+  // enable Data Watchpoint and Tracing (DWT) clock to measure microseconds
+  DWT->CTRL |= 1;
+
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
