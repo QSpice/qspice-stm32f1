@@ -40,6 +40,7 @@
 #include "main.h"
 #include "stm32f1xx_hal.h"
 #include "diag/Trace.h"
+#include "ssd1306.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -127,12 +128,36 @@ int main(void)
 
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 
+  ssd1306_Init();
+  HAL_Delay(1000);
+  ssd1306_Fill(Black);
+  ssd1306_UpdateScreen();
+
+  HAL_Delay(1000);
+
+  ssd1306_SetCursor(0,0);
+  ssd1306_WriteString("Anthony", Font_7x9_EN, White);
+
+  ssd1306_SetCursor(0,15);
+  ssd1306_WriteString("Marial Grace", Font_7x9_EN, White);
+
+  ssd1306_SetCursor(0, 30);
+  ssd1306_WriteString("Enter spice:", Font_7x9_EN, White);
+
+  ssd1306_SetCursor(0, 45);
+  ssd1306_WriteString("Select amount:", Font_7x9_EN, White);
+
+//  ssd1306_SetCursor(0,18);
+//  ssd1306_WriteString("Anthony", Font_7x10, White);
+
+  ssd1306_UpdateScreen();
+
   while (1) {
-    trace_printf("%d\n", htim4.Instance->CNT);
-//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-	  HAL_Delay(100);
-//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
-//	  HAL_Delay(100);
+//    trace_printf("%d\n", htim4.Instance->CNT);
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+	  HAL_Delay(1000);
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+	  HAL_Delay(1000);
 
   }
 
