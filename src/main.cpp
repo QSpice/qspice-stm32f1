@@ -128,36 +128,45 @@ int main(void)
 
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 
-  ssd1306_Init();
+  SSD1306 display(&hi2c1, 0x78);
   HAL_Delay(1000);
-  ssd1306_Fill(Black);
-  ssd1306_UpdateScreen();
+  display.fill(SSD1306::COLOR::Black);
+  display.swap_buffers();
 
   HAL_Delay(1000);
 
-  ssd1306_SetCursor(0,0);
-  ssd1306_WriteString("Anthony", Font_7x9_EN, White);
+  display.set_cursor(0,0);
 
-  ssd1306_SetCursor(0,15);
-  ssd1306_WriteString("Marial Grace", Font_7x9_EN, White);
+//  display.draw_pixel(5, 5, SSD1306::COLOR::White);
+//  display.draw_char('A', font_8x15, SSD1306::COLOR::White);
+//
+//  display.inverted = true;
+//  display.draw_string(" Anthony ", font_8x15, SSD1306::COLOR::White);
 
-  ssd1306_SetCursor(0, 30);
-  ssd1306_WriteString("Enter spice:", Font_7x9_EN, White);
-
-  ssd1306_SetCursor(0, 45);
-  ssd1306_WriteString("Select amount:", Font_7x9_EN, White);
+//  ssd1306_SetCursor(0,15);
+//  ssd1306_WriteString("Marial Grace", font_8x15, White);
+//
+//  ssd1306_SetCursor(0, 30);
+//  ssd1306_WriteString("Enter spice:", font_8x15, White);
+//
+//  ssd1306_SetCursor(0, 45);
+//  ssd1306_WriteString("Select amount:", font_8x15, White);
 
 //  ssd1306_SetCursor(0,18);
 //  ssd1306_WriteString("Anthony", Font_7x10, White);
 
-  ssd1306_UpdateScreen();
+//  display.swap_buffers();
 
   while (1) {
-//    trace_printf("%d\n", htim4.Instance->CNT);
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-	  HAL_Delay(1000);
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
-	  HAL_Delay(1000);
+    char val[20] = {0};
+    sprintf(val, "Count: %d", htim4.Instance->CNT);
+    display.draw_string(val);
+    display.swap_buffers();
+    display.set_cursor(0,0);
+//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+//	  HAL_Delay(1000);
+//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+//	  HAL_Delay(1000);
 
   }
 
