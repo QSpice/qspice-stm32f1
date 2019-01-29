@@ -10,11 +10,19 @@
 
 typedef struct {
   uint8_t width;
+  uint16_t offset;
+} FontDescriptor;
+
+typedef struct {
   uint8_t height;
-  const unsigned char *data;
+  char start_char;
+  char end_char;
+  const FontDescriptor* descriptors;
+  const uint8_t* bitmaps;
 } FontDef;
 
-extern FontDef font_8x15;
+extern const FontDef consolas_11ptFontInfo;
+extern const FontDef balooBhaina_28ptFontInfo;
 
 #ifdef __cplusplus
  }

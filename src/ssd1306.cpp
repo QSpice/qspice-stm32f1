@@ -1,5 +1,7 @@
 #include"ssd1306.h"
 
+SSD1306::SSD1306(): x(0), y(0), inverted(false), _address(0x00), _hi2c(nullptr) {}
+
 SSD1306::SSD1306(I2C_HandleTypeDef* hi2c, uint8_t address)
     : x(0), y(0), inverted(false), _address(address), _hi2c(hi2c) {
 
@@ -46,13 +48,13 @@ void SSD1306::fill(SSD1306::COLOR color) {
   }
 }
 
-void SSD1306::draw_pixel(uint8_t x, uint8_t y, SSD1306::COLOR color) {
+void SSD1306::draw_pixel(uint8_t x, uint8_t y, SSD1306::COLOR color, bool inverted) {
   if (x >= SSD1306_WIDTH or y >= SSD1306_HEIGHT) {
     return;
   }
 
   // Check if pixel should be inverted
-  if (inverted)
+  if (this->inverted || inverted)
     color = (SSD1306::COLOR) !color;
 
   // Draw in the right color
@@ -63,36 +65,48 @@ void SSD1306::draw_pixel(uint8_t x, uint8_t y, SSD1306::COLOR color) {
   }
 }
 
-void SSD1306::draw_char(char ch, FontDef font, SSD1306::COLOR color) {
+void SSD1306::draw_hline(uint8_t x1, uint8_t x2, uint8_t y, SSD1306::COLOR color, bool inverted) {
+  for (uint8_t x = x1; x <= x2; x++) {
+    draw_pixel(x, y, color, inverted);
+  }
+}
+
+void SSD1306::draw_char(char ch, FontDef font, SSD1306::COLOR color, bool inverted) {
   uint32_t pixel;
 
+  uint8_t desc_offset = ch - font.start_char;
+  FontDescriptor desc = font.descriptors[desc_offset];
+  uint8_t cols = 1 + (desc.width % 8 == 0 ? desc.width / 8 - 1 : desc.width / 8);
+
   // Check remaining space on current line
-  if (SSD1306_WIDTH <= (this->x + font.width) or SSD1306_HEIGHT <= (this->y + font.height)) {
+  if (SSD1306_WIDTH <= (this->x + desc.width) or SSD1306_HEIGHT <= (this->y + font.height)) {
     return;
   }
 
   // Use the font to write
   for (uint32_t i = 0; i < font.height; i++) {
-    pixel = font.data[(ch - 32) * font.height + i];
+    for (uint8_t j = 0; j < cols; j++) {
+      pixel = font.bitmaps[desc.offset + (i * cols) + j];
 
-    for (uint32_t j = font.width; j >= 1; j--) {
-      if (pixel & 0x0001) {
-        draw_pixel(this->x + j, this->y + i, (SSD1306::COLOR) color);
-      } else {
-        draw_pixel(this->x + j, this->y + i, (SSD1306::COLOR) !color);
+      for (uint8_t k = 8; k > 0; k--) {
+        if (pixel & 0x0001) {
+          draw_pixel(this->x + k + 8 * j, this->y + i, (SSD1306::COLOR) color, inverted);
+        } else {
+          draw_pixel(this->x + k + 8 * j, this->y + i, (SSD1306::COLOR) !color, inverted);
+        }
+
+        pixel >>= 1;
       }
-
-      pixel >>= 1;
     }
   }
+
+  // The current space is now taken
+  this->x += desc.width;
 }
 
-void SSD1306::draw_string(const char* str, FontDef font, SSD1306::COLOR color) {
+void SSD1306::draw_string(const char* str, FontDef font, SSD1306::COLOR color, bool inverted) {
   while(*str) {
-    draw_char(*str, font, color);
-
-    // The current space is now taken
-    this->x += font.width;
+    draw_char(*str, font, color, inverted);
 
     str++;
   }
