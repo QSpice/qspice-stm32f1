@@ -38,6 +38,7 @@
   */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <cstring>
 #include "stm32f1xx_hal.h"
 #include "diag/Trace.h"
 #include "helpers.h"
@@ -68,13 +69,17 @@ static void MX_RTC_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM4_Init(void);
 
+extern "C" void USART1_IRQHandler(void);
+
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+void message_received_callback(void);
+void reset_buffer(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-
+char rec_buffer[50];
+bool message_received;
 /* USER CODE END 0 */
 
 /**
@@ -111,17 +116,74 @@ int main(void)
   MX_TIM4_Init();
   MX_USART1_UART_Init();
 
-  trace_printf("Hello World!\n");
+  HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
+  trace_printf("%d\n", sizeof(rec_buffer));
+
+  int it = 0;
 
   while (1) {
-      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-      HAL_Delay(500);
-      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
-      HAL_Delay(500);
+    if (message_received) {
+      trace_printf("Messaged received: %s", rec_buffer);
+
+      if (strncmp(rec_buffer, "POLL", 4) == 0) {
+//        char* status = "OK 10,5,15,40,50,60";
+        char* status;
+        if (it == 0) {
+          status = "BUSY";
+        } else if (it == 1) {
+          status = "INPR";
+        } else {
+          status = "OK 10,5,15,40,50,60";
+        }
+        it++;
+        HAL_UART_Transmit(&huart1, (u_int8_t*)status, strlen(status), HAL_MAX_DELAY);
+
+      } else {
+        HAL_UART_Transmit(&huart1, (u_int8_t*)"UNKNOWN", 2, HAL_MAX_DELAY);
+      }
+
+      message_received = false;
+      reset_buffer();
+    }
   }
+}
+
+void reset_buffer() {
+  huart1.RxXferCount = sizeof(rec_buffer);
+  memset(rec_buffer, 0, sizeof(rec_buffer));
+  huart1.pRxBuffPtr = (u_int8_t*)rec_buffer;
+}
+
+void USART1_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART1_IRQn 0 */
+
+  /* USER CODE END USART1_IRQn 0 */
+  HAL_UART_IRQHandler(&huart1);
+
+  /* USER CODE BEGIN USART1_IRQn 1 */
+  char last = rec_buffer[strlen(rec_buffer)-1];
+
+  if (last = '\n') {
+    message_received = true;
+  };
+
+  /* USER CODE END USART1_IRQn 1 */
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 
 }
 
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart) {
+  __NOP();
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+  if (huart->ErrorCode == HAL_UART_ERROR_ORE) {
+    HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
+  }
+}
 
 /**
   * @brief System Clock Configuration
