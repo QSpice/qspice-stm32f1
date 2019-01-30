@@ -50,7 +50,7 @@ void Servo::go_to(int ang, int delay) {
     if(ang < MIN_ANG || ang > MAX_ANG)
       return;
 
-    int final_pos = ang2pos(ang);
+    int final_pos = ang_to_pos(ang);
     __HAL_TIM_SET_COMPARE(htim, channel, final_pos);
     delay_us(delay);
     __HAL_TIM_SET_COMPARE(htim, channel, MIN_POS);
@@ -63,7 +63,7 @@ void Servo::inc_to(int ang, int delay) {
       return;
 
     int current_pos = MIN_POS;
-    int final_pos = ang2pos(ang);
+    int final_pos = ang_to_pos(ang);
     if (delay < MIN_DELAY)
       delay = MIN_DELAY;
 
@@ -74,12 +74,12 @@ void Servo::inc_to(int ang, int delay) {
 
 
     while(current_pos > MIN_POS) {
-      __HAL_TIM_SET_COMPARE(htim, channel, --current_pos);;
+      __HAL_TIM_SET_COMPARE(htim, channel, --current_pos);
       delay_us(delay);
     }
 }
 
-int Servo::ang2pos(int ang) {
+int Servo::ang_to_pos(int ang) {
     return (MAX_POS - MIN_POS) / (MAX_ANG - MIN_ANG) * ang + MIN_POS;
 }
 

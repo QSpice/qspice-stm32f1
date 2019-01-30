@@ -25,7 +25,7 @@ class Servo{
     Servo(int);
     void go_to(int, int);
     void inc_to(int, int);
-    int ang2pos(int);
+    int ang_to_pos(int);
 };
 
 #endif

@@ -71,10 +71,6 @@ static void MX_TIM1_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM4_Init(void);
 
-extern "C" void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                                
-                                
-
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 
@@ -121,16 +117,11 @@ int main(void)
 
   trace_printf("Hello World!");
 
-  Servo::init();
-
-  Servo servo_1(1); // PA0
-  Servo servo_2(2); // PA1
-  Servo servo_3(3); // PA2
-  Servo servo_4(4); // PA3
-  Servo servo_5(5); // PA6
-  Servo servo_6(6); // PA7
   while (1) {
-    servo_1.inc_to(90, MIN_DELAY);
+      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+      HAL_Delay(500);
+      HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
+      HAL_Delay(500);
   }
 
 }
