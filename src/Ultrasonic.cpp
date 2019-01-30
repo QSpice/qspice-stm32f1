@@ -52,11 +52,11 @@ uint16_t Ultrasonic::ping() {
 
   // set trigger pin low (just to be sure)
   HAL_GPIO_WritePin(GPIOB, _trigger_pin, GPIO_PIN_RESET);
-  HAL_Delay(1);
+  delay_us(2);
 
   // send a pulse to the sensor to trigger the sensor ultrasonic ping
   HAL_GPIO_WritePin(GPIOB, _trigger_pin, GPIO_PIN_SET);
-  HAL_Delay(1);
+  delay_us(10);
   HAL_GPIO_WritePin(GPIOB, _trigger_pin, GPIO_PIN_RESET);
 
   // quit if measurement takes too long

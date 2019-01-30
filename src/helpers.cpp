@@ -8,4 +8,9 @@ void helpers::delay_us(uint32_t us) {
 
   while(DWT->CYCCNT - start < cycles);
 }
+
+uint32_t helpers::get_us_tick() {
+  return DWT->CYCCNT;
+}
+
 #pragma GCC pop_options

@@ -2,6 +2,9 @@
 #define __ULTRASONIC_H__
 
 #include "stm32f1xx_hal.h"
+#include "helpers.h"
+using helpers::delay_us;
+using helpers::get_us_tick;
 
 extern "C" void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef*);
 
