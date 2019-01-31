@@ -73,7 +73,6 @@ extern "C" void USART1_IRQHandler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void message_received_callback(void);
 void reset_buffer(void);
 /* USER CODE END PFP */
 
@@ -121,6 +120,8 @@ int main(void)
 
   int it = 0;
 
+//  HAL_UART_Transmit(&huart1, (u_int8_t*)"AT+BAUD?", 8, HAL_MAX_DELAY);
+
   while (1) {
     if (message_received) {
       trace_printf("Messaged received: %s", rec_buffer);
@@ -137,6 +138,8 @@ int main(void)
         }
         it++;
         HAL_UART_Transmit(&huart1, (u_int8_t*)status, strlen(status), HAL_MAX_DELAY);
+
+      } else if (strncmp(rec_buffer, "DATA", 4) == 0) {
 
       } else {
         HAL_UART_Transmit(&huart1, (u_int8_t*)"UNKNOWN", 2, HAL_MAX_DELAY);
@@ -164,7 +167,7 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 1 */
   char last = rec_buffer[strlen(rec_buffer)-1];
 
-  if (last = '\n') {
+  if (last == '\n') {
     message_received = true;
   };
 
@@ -331,7 +334,7 @@ static void MX_USART1_UART_Init(void)
 {
 
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
