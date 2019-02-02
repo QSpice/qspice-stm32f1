@@ -14,13 +14,14 @@ double HX711::get_raw_weight(int nbr_samples) {
         temp |= HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) << (23-i);
         HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
       }
+
       // Trigger HX711 for gain
       HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
       HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
 
       raw_weight += temp;
     }
-    return raw_weight/nbr_samples;
+    return raw_weight / nbr_samples;
 }
 
 // Obtain calibrated weight from HX711
