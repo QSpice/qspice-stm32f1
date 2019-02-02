@@ -1,5 +1,6 @@
 #include "main.h"
 #include <cstring>
+#include <stdlib.h>
 #include "stm32f1xx_hal.h"
 #include "diag/Trace.h"
 #include "helpers.h"
@@ -21,8 +22,18 @@ extern "C" void USART1_IRQHandler(void);
 // Bluetooth
 // 50 bytes is the maximum message length
 char rec_buffer[50];
-bool message_received;
+volatile bool message_received;
 void reset_buffer(void);
+void handle_message_if_needed(void);
+
+// Dispensing
+volatile bool is_dispensing = false;
+volatile bool started_dispensing = false;
+
+// Ordering
+volatile bool is_ordering = false;
+float order_amounts[6];
+void parse_order(char* order);
 
 int main(void) {
   // MCU Configuration
@@ -36,34 +47,83 @@ int main(void) {
 
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
 
-  int it = 0;
+  char buf[50] = "1|2.1,2|2.5";
+
+  parse_order(buf);
 
   while (1) {
-    if (message_received) {
-      trace_printf("Messaged received: %s", rec_buffer);
+    // TODO: update UI
+    handle_message_if_needed();
 
-      if (strncmp(rec_buffer, "POLL", 4) == 0) {
-//        char* status = "OK 10,5,15,40,50,60";
-        char* status;
-        if (it == 0) {
-          status = "BUSY";
-        } else if (it == 1) {
-          status = "INPR";
-        } else {
-          status = "OK 10,5,15,40,50,60";
-        }
-        it++;
-        HAL_UART_Transmit(&huart1, (u_int8_t*)status, strlen(status), HAL_MAX_DELAY);
+    // TODO: handle ordering
+    //  if (is_ordering) {
+    //
+    //  }
 
-      } else if (strncmp(rec_buffer, "DATA", 4) == 0) {
+    // Dispensing
+    if (is_dispensing) {
+      if (started_dispensing) {
 
+        started_dispensing = false;
       } else {
-        HAL_UART_Transmit(&huart1, (u_int8_t*)"UNKNOWN", 2, HAL_MAX_DELAY);
-      }
 
-      message_received = false;
-      reset_buffer();
+      }
     }
+
+  }
+}
+
+void handle_message_if_needed() {
+  if (!message_received)
+    return;
+
+  trace_printf("Messaged received: %s", rec_buffer);
+
+  const char* status;
+
+  if (strncmp(rec_buffer, "QUIT", 4) == 0) {
+    status = "OK";
+  } else if (is_ordering) {
+    status = "INPR";
+  } else if (is_dispensing) {
+    status = "BUSY";
+  } else if (strncmp(rec_buffer, "POLL", 4) == 0) {
+    // TODO: actually read spice levels
+    status = "OK 10,5,15,40,50,60";
+  } else if (strncmp(rec_buffer, "DATA", 4) == 0) {
+    status = "ACK";
+    char* order = strtok(rec_buffer, " ");
+    order = strtok(nullptr, " ");
+
+    parse_order(order);
+
+    is_dispensing = true;
+    started_dispensing = true;
+  }
+
+  reset_buffer();
+  message_received = false;
+  HAL_UART_Transmit(&huart1, (u_int8_t*)status, strlen(status), HAL_MAX_DELAY);
+}
+
+void parse_order(char* order) {
+  char* comma_saveptr;
+  char* line_saveptr;
+
+  // split the order items (spices)
+  char *item = strtok_r(order, ",", &comma_saveptr);
+
+  while (item != nullptr) {
+    // split the container number and amount of spice
+    char* order_info = strtok_r(item, "|", &line_saveptr);
+
+    uint8_t container_num = atoi(order_info) - 1;
+    order_info = strtok_r(nullptr, "|", &line_saveptr);
+    float amount = atof(order_info);
+
+    order_amounts[container_num] = amount;
+
+    item = strtok_r(nullptr, ",", &comma_saveptr);
   }
 }
 
