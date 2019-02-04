@@ -11,6 +11,7 @@ extern "C" void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 #define MIN_ANG 0
 #define MAX_ANG 180
 #define MIN_POS 220
+#define CENTER_POS 320 // Approximately the center position for initialization
 #define MAX_POS 1300
 
 #define MIN_DELAY 300 // 300us is the minimum delay between each tick
