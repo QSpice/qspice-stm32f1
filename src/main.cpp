@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include "stm32f1xx_hal.h"
 #include "diag/Trace.h"
-#include "helpers.h"
+#include "Servo.h"
+#include "Ultrasonic.h"
 
 I2C_HandleTypeDef hi2c1;
 RTC_HandleTypeDef hrtc;
@@ -33,7 +34,18 @@ volatile bool started_dispensing = false;
 // Ordering
 volatile bool is_ordering = false;
 float order_amounts[6];
-void parse_order(char* order);
+void parse_order(char levels[28]);
+
+#define MAX_SPICE_HEIGHT 9.0
+void read_spice_levels(char*);
+Ultrasonic d_sensors[6] = {
+    Ultrasonic(GPIO_PIN_10),
+    Ultrasonic(GPIO_PIN_11),
+    Ultrasonic(GPIO_PIN_12),
+    Ultrasonic(GPIO_PIN_13),
+    Ultrasonic(GPIO_PIN_14),
+    Ultrasonic(GPIO_PIN_15)
+};
 
 int main(void) {
   // MCU Configuration
@@ -45,11 +57,10 @@ int main(void) {
   MX_TIM4_Init();
   MX_USART1_UART_Init();
 
+  Servo::init();
+  Ultrasonic::init();
+
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
-
-  char buf[50] = "1|2.1,2|2.5";
-
-  parse_order(buf);
 
   while (1) {
     // TODO: update UI
@@ -73,25 +84,40 @@ int main(void) {
   }
 }
 
+void read_spice_levels(char* levels) {
+  int m[6] = {0};
+
+  for (uint8_t i = 0; i < 6; i++) {
+    float distance = d_sensors[i].get_distance(3);
+    m[i] = 100 - (int)max((distance / MAX_SPICE_HEIGHT)*100, 100);
+  }
+
+  sprintf(levels, "OK %d,%d,%d,%d,%d,%d\n", m[0], m[1], m[2], m[3], m[4], m[5]);
+}
+
 void handle_message_if_needed() {
   if (!message_received)
     return;
 
   trace_printf("Messaged received: %s", rec_buffer);
 
-  const char* status;
+  const char* status = "UNK";
 
   if (strncmp(rec_buffer, "QUIT", 4) == 0) {
-    status = "OK";
+    status = "OK\n";
+    is_dispensing = false;
   } else if (is_ordering) {
-    status = "INPR";
+    status = "INPR\n";
   } else if (is_dispensing) {
-    status = "BUSY";
+    status = "BUSY\n";
   } else if (strncmp(rec_buffer, "POLL", 4) == 0) {
     // TODO: actually read spice levels
-    status = "OK 10,5,15,40,50,60";
+    char levels[28] = {0};
+    read_spice_levels(levels);
+
+    status = levels;
   } else if (strncmp(rec_buffer, "DATA", 4) == 0) {
-    status = "ACK";
+    status = "ACK\n";
     char* order = strtok(rec_buffer, " ");
     order = strtok(nullptr, " ");
 
@@ -104,6 +130,7 @@ void handle_message_if_needed() {
   reset_buffer();
   message_received = false;
   HAL_UART_Transmit(&huart1, (u_int8_t*)status, strlen(status), HAL_MAX_DELAY);
+  trace_printf(status);
 }
 
 void parse_order(char* order) {
@@ -314,7 +341,7 @@ static void MX_GPIO_Init(void) {
                           |GPIO_PIN_14|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA15 */
