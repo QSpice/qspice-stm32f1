@@ -52,9 +52,6 @@ void Servo::go_to(int ang, int delay) {
 
     int final_pos = ang_to_pos(ang);
     __HAL_TIM_SET_COMPARE(htim, channel, final_pos);
-    delay_us(delay);
-    __HAL_TIM_SET_COMPARE(htim, channel, MIN_POS);
-    delay_us(delay);
 }
 
 // Go to desired position incrementally staying at each pulse for as long as delay set and return
@@ -69,12 +66,6 @@ void Servo::inc_to(int ang, int delay) {
 
     while(current_pos < final_pos) {
       __HAL_TIM_SET_COMPARE(htim, channel, ++current_pos);
-      delay_us(delay);
-    }
-
-
-    while(current_pos > MIN_POS) {
-      __HAL_TIM_SET_COMPARE(htim, channel, --current_pos);
       delay_us(delay);
     }
 }
@@ -109,7 +100,7 @@ static void MX_TIM2_Init(void)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = MIN_POS;
+  sConfigOC.Pulse = CENTER_POS;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
