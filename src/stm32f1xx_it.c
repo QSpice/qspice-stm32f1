@@ -30,6 +30,10 @@ void SysTick_Handler(void) {
   HAL_SYSTICK_IRQHandler();
 }
 
+void EXTI4_IRQHandler(void) {
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4);
+}
+
 void TIM1_CC_IRQHandler(void) {
   HAL_TIM_IRQHandler(&htim1);
 }
