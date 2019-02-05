@@ -46,7 +46,7 @@ Servo::Servo(int servo) {
 }
 
 // Go to desired position directly, stay at each position for as long as delay set and return
-void Servo::go_to(int ang, int delay) {
+void Servo::go_to(int ang) {
     if(ang < MIN_ANG || ang > MAX_ANG)
       return;
 
@@ -100,7 +100,7 @@ static void MX_TIM2_Init(void)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = CENTER_POS;
+  sConfigOC.Pulse = MIN_POS;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)

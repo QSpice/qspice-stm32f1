@@ -36,7 +36,7 @@ float Ultrasonic::get_distance(uint16_t samples) {
     }
 
     if (i < samples)
-      HAL_Delay(60);
+      HAL_Delay(100);
   }
 
   stop_timer_capture();
@@ -56,7 +56,7 @@ uint16_t Ultrasonic::ping() {
 
   // send a pulse to the sensor to trigger the sensor ultrasonic ping
   HAL_GPIO_WritePin(GPIOB, _trigger_pin, GPIO_PIN_SET);
-  delay_us(10);
+  delay_us(20);
   HAL_GPIO_WritePin(GPIOB, _trigger_pin, GPIO_PIN_RESET);
 
   // quit if measurement takes too long

@@ -5,6 +5,7 @@
 #include "diag/Trace.h"
 #include "Servo.h"
 #include "Ultrasonic.h"
+#include "HX711.h"
 
 I2C_HandleTypeDef hi2c1;
 RTC_HandleTypeDef hrtc;
@@ -62,6 +63,11 @@ int main(void) {
 
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
 
+  Servo(1).go_to(10);
+
+  HX711 hx711;
+  hx711.tare(15);
+
   while (1) {
     // TODO: update UI
     handle_message_if_needed();
@@ -71,13 +77,30 @@ int main(void) {
     //
     //  }
 
+//    trace_printf("weight: %.2f g\n", hx711.get_cal_weight(15)*1000);
+//    HAL_Delay(500);
+
     // Dispensing
     if (is_dispensing) {
+      Servo servo = Servo(1);
       if (started_dispensing) {
-
+        hx711.tare(15);
         started_dispensing = false;
-      } else {
+      }
 
+      HAL_Delay(1000);
+      float weight = hx711.get_cal_weight(15) * 1000;
+      trace_printf("weight: %.2f g, %.2f\n", weight, order_amounts[0]);
+
+      if (weight < order_amounts[0]) {
+        servo.go_to(30);
+        HAL_Delay(500);
+        servo.go_to(0);
+        HAL_Delay(500);
+        servo.go_to(10);
+        HAL_Delay(500);
+      } else {
+        is_dispensing = false;
       }
     }
 

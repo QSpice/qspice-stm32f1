@@ -24,7 +24,7 @@ class Servo{
   public:
     static void init();
     Servo(int);
-    void go_to(int, int);
+    void go_to(int);
     void inc_to(int, int);
     int ang_to_pos(int);
 };
