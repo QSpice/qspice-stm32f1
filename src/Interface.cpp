@@ -28,8 +28,8 @@ void Interface::init() {
   // Temporarily set time
   RTC_TimeTypeDef sTime;
 
-  sTime.Hours = 19;
-  sTime.Minutes = 58;
+  sTime.Hours = 14;
+  sTime.Minutes = 30;
   sTime.Seconds = 0;
 
   HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);

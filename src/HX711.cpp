@@ -6,7 +6,7 @@ double HX711::get_raw_weight(int nbr_samples) {
     for (int i = 0; i < nbr_samples; i++) {
       int temp = 0;
       // Wait for clock pin to be high before reading
-      uint16_t max_time = HAL_GetTick() + 2;
+      uint16_t max_time = HAL_GetTick() + 10;
       while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) || HAL_GetTick() < max_time);
       // Trigger HX711 for single weight measurement
       for (int i = 0; i < 24; i++) {

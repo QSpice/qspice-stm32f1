@@ -47,13 +47,13 @@ int main(void) {
   HAL_Init();
   SystemClock_Config();
   MX_GPIO_Init();
-  MX_I2C1_Init();
-  MX_RTC_Init();
-  MX_TIM4_Init();
   MX_USART1_UART_Init();
 
   Servo::init();
   Ultrasonic::init();
+  Interface::init();
+
+  Interface ui;
 
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
 
@@ -63,7 +63,8 @@ int main(void) {
   hx711.tare(15);
 
   while (1) {
-    // TODO: update UI
+    ui.render();
+
     handle_message_if_needed();
 
     // TODO: handle ordering
@@ -87,7 +88,7 @@ int main(void) {
       trace_printf("weight: %.2f g, %.2f\n", weight, order_amounts[0]);
 
       if (weight < order_amounts[0]) {
-        servo.go_to(30);
+        servo.go_to(25);
         HAL_Delay(500);
         servo.go_to(0);
         HAL_Delay(500);
