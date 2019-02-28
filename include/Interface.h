@@ -4,6 +4,9 @@
 #include "stm32f1xx.h"
 #include "ssd1306.h"
 #include <cstring>
+#include "helpers.h"
+#include "Spice.h"
+using helpers::roll_over;
 
 extern I2C_HandleTypeDef hi2c1;
 extern RTC_HandleTypeDef hrtc;
@@ -13,6 +16,11 @@ enum Page {
   IDLE,
   ACTION_MENU,
   MODIFY_CLOCK,
+  SELECT_CONTAINER,
+  SELECT_SPICE,
+  SELECT_AMOUNT,
+  ANOTHER_ONE,
+  DISPENSING
 };
 
 class Interface {
