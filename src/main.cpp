@@ -64,14 +64,15 @@ int main(void) {
 //  trace_printf("started hx711\n");
   trace_printf("offset: %.f\n", offset);
 
+
 // JUST WEIGH
-  while (1) {
-    //offset = hx711.tare(nbr_samples);
-    //trace_printf("offset: %.f\n", hx711.tare(nbr_samples));
-
-    trace_printf("weight: %.2f\n", hx711.get_cal_weight(nbr_samples)*1000);
-
-  }
+//  while (1) {
+//    //offset = hx711.tare(nbr_samples);
+//    //trace_printf("offset: %.f\n", hx711.tare(nbr_samples));
+//
+//    trace_printf("weight: %.2f\n", hx711.get_cal_weight(nbr_samples)*1000);
+//
+//  }
 
 
 // ALL SERVOS TURN
@@ -90,48 +91,48 @@ int main(void) {
 
 
 // ALGORITHM
-//  Servo servo = Servo(1);
-//  int ang = servo.get_initial_ang();
-//  float order_amnt = 4.0;
-//  float reading;
-//  float ratio = 0.85;
-//
-//
-//  trace_printf("Order Amount: %.2f\n", order_amnt);
-//  trace_printf("Starting Dispensing\n");
-//  float current_amnt = hx711.get_cal_weight(15)*1000;
-//  trace_printf("Initial weight: %.2f\n", current_amnt);
-//  servo.go_to(ang);
-//  HAL_Delay(500);
-//  servo.go_to(0);
-//  HAL_Delay(500);
-//  reading = hx711.get_cal_weight(15)*1000;
-//  trace_printf("Weight after first dispensing: %.2f\n", reading);
-//
-//  while (reading < order_amnt) {
-//        trace_printf("Loop\n");
-//
-//        if ((abs(reading - current_amnt) < order_amnt*0.1) && (current_amnt < order_amnt*ratio) && ang < 180){
-//          ang+=5;
-//          trace_printf("Increased ang to: %d\n", ang);
-//        }
-//
-//        else if (reading > order_amnt*ratio && ang > 20){
-//          ang-=5;
-//          trace_printf("Decreased ang to: %d\n", ang);
-//        }
-//
-//        current_amnt = reading;
-//        servo.go_to(ang);
-//        HAL_Delay(500);
-//        servo.go_to(0);
-//        HAL_Delay(900);
-//        reading = hx711.get_cal_weight(15)*1000;
-//        trace_printf("current_amnt: %.2f, reading: %.2f, diff: %.2f\n", current_amnt, reading, reading-current_amnt);
-//  }
-//  servo.go_to(10);
-//
-//  while (1){}
+  Servo servo = Servo(1);
+  int ang = servo.get_initial_ang() + 10;
+  float order_amnt = 4.0;
+  float reading;
+  float ratio = 0.85;
+
+
+  trace_printf("Order Amount: %.2f\n", order_amnt);
+  trace_printf("Starting Dispensing\n");
+  float current_amnt = hx711.get_cal_weight(15)*1000;
+  trace_printf("Initial weight: %.2f\n", current_amnt);
+  servo.go_to(ang);
+  HAL_Delay(500);
+  servo.go_to(0);
+  HAL_Delay(500);
+  reading = hx711.get_cal_weight(15)*1000;
+  trace_printf("Weight after first dispensing: %.2f\n", reading);
+
+  while (reading < order_amnt) {
+        trace_printf("Loop\n");
+
+        if ((abs(reading - current_amnt) < order_amnt*0.1) && (current_amnt < order_amnt*ratio) && ang < 180){
+          ang+=5;
+          trace_printf("Increased ang to: %d\n", ang);
+        }
+
+        else if (reading > order_amnt*ratio && ang > servo.get_initial_ang()){
+          ang-=5;
+          trace_printf("Decreased ang to: %d\n", ang);
+        }
+
+        current_amnt = reading;
+        servo.go_to(ang);
+        HAL_Delay(500);
+        servo.go_to(0);
+        HAL_Delay(900);
+        reading = hx711.get_cal_weight(15)*1000;
+        trace_printf("current_amnt: %.2f, reading: %.2f, diff: %.2f\n", current_amnt, reading, reading-current_amnt);
+  }
+  servo.go_to(10);
+
+  while (1){}
 
 
 }

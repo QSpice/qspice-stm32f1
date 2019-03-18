@@ -19,7 +19,6 @@ double HX711::get_raw_weight(int nbr_samples) {
       HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
       HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
 
-      trace_printf("raw_val: %.f\n", (double) temp);
       raw_weight += temp;
     }
     return (double) raw_weight / nbr_samples;
