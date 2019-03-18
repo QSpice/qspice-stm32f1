@@ -53,53 +53,87 @@ int main(void) {
   Ultrasonic::init();
   Interface::init();
 
-  Interface ui;
+//  Interface ui;
+//
+//  HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
 
-  HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
-
-  Servo(1).go_to(10);
 
   HX711 hx711;
-  hx711.tare(15);
+  int nbr_samples = 15;
+  double offset = hx711.tare(nbr_samples);
+//  trace_printf("started hx711\n");
+  trace_printf("offset: %.f\n", offset);
 
+// JUST WEIGH
   while (1) {
-    ui.render();
+    //offset = hx711.tare(nbr_samples);
+    //trace_printf("offset: %.f\n", hx711.tare(nbr_samples));
 
-    handle_message_if_needed();
-
-    // TODO: handle ordering
-    //  if (is_ordering) {
-    //
-    //  }
-
-//    trace_printf("weight: %.2f g\n", hx711.get_cal_weight(15)*1000);
-//    HAL_Delay(500);
-
-    // Dispensing
-    if (is_dispensing) {
-      Servo servo = Servo(1);
-      if (started_dispensing) {
-        hx711.tare(15);
-        started_dispensing = false;
-      }
-
-      HAL_Delay(1000);
-      float weight = hx711.get_cal_weight(15) * 1000;
-      trace_printf("weight: %.2f g, %.2f\n", weight, order_amounts[0]);
-
-      if (weight < order_amounts[0]) {
-        servo.go_to(25);
-        HAL_Delay(500);
-        servo.go_to(0);
-        HAL_Delay(500);
-        servo.go_to(10);
-        HAL_Delay(500);
-      } else {
-        is_dispensing = false;
-      }
-    }
+    trace_printf("weight: %.2f\n", hx711.get_cal_weight(nbr_samples)*1000);
 
   }
+
+
+// ALL SERVOS TURN
+//Servo servo[6] = {Servo(1), Servo(2), Servo(3), Servo(4), Servo(5), Servo(6)};
+//
+//while(1){
+//    for (int i = 0; i < 6; i++)
+//      servo[i].go_to(50);
+//    HAL_Delay(500);
+//    for (int i = 0; i < 6; i++)
+//      servo[i].go_to(0);
+//    HAL_Delay(500);
+//    //trace_printf("weight: %.2f\n", hx711.get_cal_weight(15)*1000);
+//}
+
+
+
+// ALGORITHM
+//  Servo servo = Servo(1);
+//  int ang = servo.get_initial_ang();
+//  float order_amnt = 4.0;
+//  float reading;
+//  float ratio = 0.85;
+//
+//
+//  trace_printf("Order Amount: %.2f\n", order_amnt);
+//  trace_printf("Starting Dispensing\n");
+//  float current_amnt = hx711.get_cal_weight(15)*1000;
+//  trace_printf("Initial weight: %.2f\n", current_amnt);
+//  servo.go_to(ang);
+//  HAL_Delay(500);
+//  servo.go_to(0);
+//  HAL_Delay(500);
+//  reading = hx711.get_cal_weight(15)*1000;
+//  trace_printf("Weight after first dispensing: %.2f\n", reading);
+//
+//  while (reading < order_amnt) {
+//        trace_printf("Loop\n");
+//
+//        if ((abs(reading - current_amnt) < order_amnt*0.1) && (current_amnt < order_amnt*ratio) && ang < 180){
+//          ang+=5;
+//          trace_printf("Increased ang to: %d\n", ang);
+//        }
+//
+//        else if (reading > order_amnt*ratio && ang > 20){
+//          ang-=5;
+//          trace_printf("Decreased ang to: %d\n", ang);
+//        }
+//
+//        current_amnt = reading;
+//        servo.go_to(ang);
+//        HAL_Delay(500);
+//        servo.go_to(0);
+//        HAL_Delay(900);
+//        reading = hx711.get_cal_weight(15)*1000;
+//        trace_printf("current_amnt: %.2f, reading: %.2f, diff: %.2f\n", current_amnt, reading, reading-current_amnt);
+//  }
+//  servo.go_to(10);
+//
+//  while (1){}
+
+
 }
 
 void read_spice_levels(char* levels) {

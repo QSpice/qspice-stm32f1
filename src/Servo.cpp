@@ -14,30 +14,55 @@ void Servo::init() {
 }
 
 Servo::Servo(int servo) {
+  // SERVO ANGLES
+  // S1| -5:50, 0:55, 60: 101
+  // S2| -5:47, 0:52, 60: 98
+  // S3| -5:49, 0: 55, 60: 101
+  // S4| -5:47, 0: 52, 60:101
+
+  // S5| -5:52 , 0: 57 , 60: 105
     switch(servo) {
       case 1:
         htim = &htim2;
         channel = TIM_CHANNEL_1;
+        overshoot_ang = 50;
+        initial_ang = 55;
+        next_ang = 101;
         break;
       case 2:
         htim = &htim2;
         channel = TIM_CHANNEL_2;
+        overshoot_ang = 47;
+        initial_ang = 52;
+        next_ang = 98;
         break;
       case 3:
         htim = &htim2;
         channel = TIM_CHANNEL_3;
+        overshoot_ang = 49;
+        initial_ang = 55;
+        next_ang = 101;
         break;
       case 4:
         htim = &htim2;
         channel = TIM_CHANNEL_4;
+        overshoot_ang = 47;
+        initial_ang = 52;
+        next_ang = 101;
         break;
       case 5:
         htim = &htim3;
         channel = TIM_CHANNEL_1;
+        overshoot_ang = 52;
+        initial_ang = 57;
+        next_ang = 105;
         break;
       case 6:
         htim = &htim3;
         channel = TIM_CHANNEL_2;
+        overshoot_ang = 50;
+        initial_ang = 55;
+        next_ang = 101;
         break;
       default:
         return;
@@ -72,6 +97,18 @@ void Servo::inc_to(int ang, int delay) {
 
 int Servo::ang_to_pos(int ang) {
     return (MAX_POS - MIN_POS) / (MAX_ANG - MIN_ANG) * ang + MIN_POS;
+}
+
+int Servo::get_overshoot_ang(){
+  return overshoot_ang;
+}
+
+int Servo::get_initial_ang(){
+  return initial_ang;
+}
+
+int Servo::get_next_ang(){
+  return next_ang;
 }
 
 /* TIM2 init function */

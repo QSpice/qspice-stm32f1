@@ -19,9 +19,10 @@ double HX711::get_raw_weight(int nbr_samples) {
       HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
       HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
 
+      trace_printf("raw_val: %.f\n", (double) temp);
       raw_weight += temp;
     }
-    return raw_weight / nbr_samples;
+    return (double) raw_weight / nbr_samples;
 }
 
 // Obtain calibrated weight from HX711
@@ -30,6 +31,7 @@ float HX711::get_cal_weight(int nbr_samples) {
 }
 
 // Tare by setting the offset
-void HX711::tare (int nbr_samples) {
+double HX711::tare (int nbr_samples) {
     offset = get_raw_weight(nbr_samples);
+    return offset;
 }
