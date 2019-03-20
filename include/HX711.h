@@ -8,7 +8,7 @@
 class HX711 {
   private:
     int offset = 0;
-    float cal = 7127860;
+    float cal = 7127660;
 
   public:
     double get_raw_weight(int);

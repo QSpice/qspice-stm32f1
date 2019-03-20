@@ -23,7 +23,9 @@ void reset_buffer(void);
 void handle_message_if_needed(void);
 
 // Dispensing
-#define NUM_WEIGHT_SAMPLES 15
+#define NUM_WEIGHT_SAMPLES 20
+#define THRESHOLD 0.1
+bool should_dispense(float target, float value);
 
 volatile bool is_processing_order = false;
 bool is_dispensing = false;
@@ -67,21 +69,31 @@ int main(void) {
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
 
   HX711 hx711;
-  for (int i = 0; i < 6; i++)
+  for (int i = 0; i < 6; i++){
     servos[i] = new Servo(i+1);
+//    servos[i]->go_to(60);
+  }
+
+  hx711.tare(NUM_WEIGHT_SAMPLES);
+
+//  while (1) {
+//    float value = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
+//    trace_printf("weight: %.2f g\n", value);
+//    HAL_Delay(1000);
+//  }
 
   #ifdef TEST
-    hx711.tare(15);
+    hx711.tare(NUM_WEIGHT_SAMPLES);
 
     Servo* servo = servos[0];
     // int delay = 150;
     int min_delay = 3;
 
     float current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
-    float order_amount = 2;
+    float order_amount = 2.6;
     int angle = servo->initial_ang;
 
-    while (current_amount < order_amount) {
+    while (should_dispense(order_amount, current_amount)) {
 
       if (order_amount > 10)
         angle = servo->next_ang;
@@ -90,14 +102,14 @@ int main(void) {
       else if ((order_amount - current_amount) < 0.5)
         angle = servo->initial_ang + 10;
       else
-        angle = (order_amount-0.5)/(10-0.5) * ((servo->next_ang -  servo->initial_ang) - 10) + servo->initial_ang + 10;
+        angle = (order_amount - 0.5) / (10 - 0.5) * ((servo->next_ang -  servo->initial_ang) - 10) + servo->initial_ang + 10;
 
       servo->go_to(angle);
       HAL_Delay(angle * min_delay);
       servo->go_to(servo->overshoot_ang);
-      HAL_Delay(500);
+      HAL_Delay(100);
       servo->go_to(servo->initial_ang);
-      HAL_Delay(5000);
+      HAL_Delay(2000);
       current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
       trace_printf("weight: %.2f g, angle: %.d\n", current_amount, angle);
     }
@@ -179,6 +191,12 @@ int main(void) {
 
 
   } // end main loop
+}
+
+bool should_dispense(float target, float value) {
+  float result = target - value;
+
+  return result > THRESHOLD && result > 0;
 }
 
 void read_spice_levels(char* levels) {
