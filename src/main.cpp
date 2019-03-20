@@ -23,12 +23,19 @@ void reset_buffer(void);
 void handle_message_if_needed(void);
 
 // Dispensing
-volatile bool is_dispensing = false;
-volatile bool started_dispensing = false;
+#define NUM_WEIGHT_SAMPLES 15
+
+volatile bool is_processing_order = false;
+bool is_dispensing = false;
+int current_location = 0;
+
+Servo* servos[6];
+
+
 
 // Ordering
 volatile bool is_ordering = false;
-float order_amounts[6];
+float order_amounts[6] = {0};
 void parse_order(char levels[28]);
 
 #define MAX_SPICE_HEIGHT 9.0
@@ -41,6 +48,8 @@ Ultrasonic d_sensors[6] = {
     Ultrasonic(GPIO_PIN_14),
     Ultrasonic(GPIO_PIN_15)
 };
+
+#define TEST
 
 int main(void) {
   // MCU Configuration
@@ -57,14 +66,48 @@ int main(void) {
 
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
 
-  Servo(1).go_to(10);
-
   HX711 hx711;
-  hx711.tare(15);
+  for (int i = 0; i < 6; i++)
+    servos[i] = new Servo(i+1);
+
+  #ifdef TEST
+    hx711.tare(15);
+
+    Servo* servo = servos[0];
+    // int delay = 150;
+    int min_delay = 3;
+
+    float current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
+    float order_amount = 2;
+    int angle = servo->initial_ang;
+
+    while (current_amount < order_amount) {
+
+      if (order_amount > 10)
+        angle = servo->next_ang;
+      else if ((order_amount - current_amount) < 0.2)
+        angle = servo->initial_ang + 5;
+      else if ((order_amount - current_amount) < 0.5)
+        angle = servo->initial_ang + 10;
+      else
+        angle = (order_amount-0.5)/(10-0.5) * ((servo->next_ang -  servo->initial_ang) - 10) + servo->initial_ang + 10;
+
+      servo->go_to(angle);
+      HAL_Delay(angle * min_delay);
+      servo->go_to(servo->overshoot_ang);
+      HAL_Delay(500);
+      servo->go_to(servo->initial_ang);
+      HAL_Delay(5000);
+      current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
+      trace_printf("weight: %.2f g, angle: %.d\n", current_amount, angle);
+    }
+
+  trace_printf("done\n");
+  while (1) {}
+  #endif
 
   while (1) {
     ui.render();
-
     handle_message_if_needed();
 
     // TODO: handle ordering
@@ -72,34 +115,70 @@ int main(void) {
     //
     //  }
 
-//    trace_printf("weight: %.2f g\n", hx711.get_cal_weight(15)*1000);
-//    HAL_Delay(500);
+    #ifdef DEBUGGING
+      trace_printf("weight: %.2f g\n", hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000);
+    #endif
+
 
     // Dispensing
-    if (is_dispensing) {
-      Servo servo = Servo(1);
-      if (started_dispensing) {
-        hx711.tare(15);
-        started_dispensing = false;
-      }
+    if (is_processing_order) {
+      // currently dispensing a spice
+      Servo* servo;
 
-      HAL_Delay(1000);
-      float weight = hx711.get_cal_weight(15) * 1000;
-      trace_printf("weight: %.2f g, %.2f\n", weight, order_amounts[0]);
+      if (is_dispensing) {
 
-      if (weight < order_amounts[0]) {
-        servo.go_to(25);
-        HAL_Delay(500);
-        servo.go_to(0);
-        HAL_Delay(500);
-        servo.go_to(10);
-        HAL_Delay(500);
+        float weight = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
+        float target = order_amounts[current_location];
+
+        #ifdef DEBUGGING
+          trace_printf("weight: %.2f g, %.2f, %d\n", weight, target, current_location);
+        #endif
+
+        // what if weight decreases
+        // what if weight doesnt increase
+        // what if weight increases but supposed to stop
+        // what if not enough spice
+        // what if weight was 300 pounds (like fr, if the weight changes dramatically)
+
+
+        if (weight < target) {
+//          servo.go_to(25);
+//          HAL_Delay(500);
+//          servo.go_to(0);
+//          HAL_Delay(500);
+//          servo.go_to(10);
+//          HAL_Delay(500);
+        } else {
+          is_dispensing = false;
+          current_location++;
+        }
+
+      // a new spice is ready to be dispensed
       } else {
-        is_dispensing = false;
+        // if we reached last container, stop processing order
+        while (order_amounts[current_location] <= 0 && current_location < 6)
+          current_location++;
+
+        if (current_location >= 6) {
+          is_processing_order = false;
+          continue;
+        }
+
+        // first dispense
+        hx711.tare(NUM_WEIGHT_SAMPLES);
+        is_dispensing = true;
+
+        servo = servos[current_location];
+
+        servo->go_to(servo->initial_ang + 10);
+        HAL_Delay(100);
+        servo->go_to(servo->initial_ang);
+
       }
     }
 
-  }
+
+  } // end main loop
 }
 
 void read_spice_levels(char* levels) {
@@ -107,7 +186,7 @@ void read_spice_levels(char* levels) {
 
   for (uint8_t i = 0; i < 6; i++) {
     float distance = d_sensors[i].get_distance(3);
-    m[i] = 100 - (int)max((distance / MAX_SPICE_HEIGHT)*100, 100);
+    m[i] = 100 - (int)min((distance / MAX_SPICE_HEIGHT)*100, 100);
   }
 
   sprintf(levels, "OK %d,%d,%d,%d,%d,%d\n", m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -123,7 +202,7 @@ void handle_message_if_needed() {
 
   if (strncmp(rec_buffer, "QUIT", 4) == 0) {
     status = "OK\n";
-    is_dispensing = false;
+    is_processing_order = false;
   } else if (is_ordering) {
     status = "INPR\n";
   } else if (is_dispensing) {
@@ -140,8 +219,7 @@ void handle_message_if_needed() {
 
     parse_order(order);
 
-    is_dispensing = true;
-    started_dispensing = true;
+    is_processing_order = true;
   }
 
   reset_buffer();

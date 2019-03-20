@@ -1,13 +1,24 @@
 #include "HX711.h"
 
+int comp(const void* a, const void* b) {
+  int *x = (int *) a;
+  int *y = (int *) b;
+
+  return *x - *y;
+}
+
 // Obtain non-calibrated average weight from HX711
 double HX711::get_raw_weight(int nbr_samples) {
     int raw_weight = 0;
+
+    int samples[nbr_samples] = {0};
+
     for (int i = 0; i < nbr_samples; i++) {
       int temp = 0;
       // Wait for clock pin to be high before reading
-      uint16_t max_time = HAL_GetTick() + 10;
-      while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) || HAL_GetTick() < max_time);
+      uint16_t max_time = HAL_GetTick() + 20;
+      while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3));
+
       // Trigger HX711 for single weight measurement
       for (int i = 0; i < 24; i++) {
         HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
@@ -19,14 +30,18 @@ double HX711::get_raw_weight(int nbr_samples) {
       HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
       HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
 
-      raw_weight += temp;
+      samples[i] = temp;
     }
-    return raw_weight / nbr_samples;
+
+    qsort(samples, nbr_samples, sizeof(int), comp);
+
+    return (double) samples[nbr_samples >> 1];
 }
 
 // Obtain calibrated weight from HX711
 float HX711::get_cal_weight(int nbr_samples) {
-    return (get_raw_weight(nbr_samples) - offset) / cal;
+    float value = (get_raw_weight(nbr_samples) - offset) / cal;
+    return value < 0.0 ? 0.0 : value;
 }
 
 // Tare by setting the offset

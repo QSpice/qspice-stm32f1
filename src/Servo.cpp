@@ -14,30 +14,54 @@ void Servo::init() {
 }
 
 Servo::Servo(int servo) {
+  // SERVO ANGLES
+  // S1| -5:50, 0:55, 60: 101
+  // S2| -5:47, 0:52, 60: 98
+  // S3| -5:49, 0: 55, 60: 101
+  // S4| -5:47, 0: 52, 60:101
+  // S5| -5:52 , 0: 57 , 60: 105
     switch(servo) {
       case 1:
         htim = &htim2;
         channel = TIM_CHANNEL_1;
+        overshoot_ang = 50;
+        initial_ang = 55;
+        next_ang = 101;
         break;
       case 2:
         htim = &htim2;
         channel = TIM_CHANNEL_2;
+        overshoot_ang = 47;
+        initial_ang = 52;
+        next_ang = 98;
         break;
       case 3:
         htim = &htim2;
         channel = TIM_CHANNEL_3;
+        overshoot_ang = 49;
+        initial_ang = 55;
+        next_ang = 101;
         break;
       case 4:
         htim = &htim2;
         channel = TIM_CHANNEL_4;
+        overshoot_ang = 47;
+        initial_ang = 52;
+        next_ang = 101;
         break;
       case 5:
         htim = &htim3;
         channel = TIM_CHANNEL_1;
+        overshoot_ang = 52;
+        initial_ang = 57;
+        next_ang = 105;
         break;
       case 6:
         htim = &htim3;
         channel = TIM_CHANNEL_2;
+        overshoot_ang = 50;
+        initial_ang = 55;
+        next_ang = 101;
         break;
       default:
         return;
@@ -100,7 +124,7 @@ static void MX_TIM2_Init(void)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = MIN_POS;
+  sConfigOC.Pulse = CENTER_POS;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -153,7 +177,7 @@ static void MX_TIM3_Init(void)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = MIN_POS;
+  sConfigOC.Pulse = CENTER_POS;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
