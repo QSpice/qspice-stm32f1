@@ -24,7 +24,7 @@ void handle_message_if_needed(void);
 
 // Dispensing
 #define NUM_WEIGHT_SAMPLES 20
-#define THRESHOLD 0.1
+#define THRESHOLD 0.05
 bool should_dispense(float target, float value);
 
 volatile bool is_processing_order = false;
@@ -85,12 +85,12 @@ int main(void) {
   #ifdef TEST
     hx711.tare(NUM_WEIGHT_SAMPLES);
 
-    Servo* servo = servos[0];
+    Servo* servo = servos[1];
     // int delay = 150;
     int min_delay = 3;
 
     float current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
-    float order_amount = 2.6;
+    float order_amount = 2.3;
     int angle = servo->initial_ang;
 
     while (should_dispense(order_amount, current_amount)) {
@@ -104,12 +104,14 @@ int main(void) {
       else
         angle = (order_amount - 0.5) / (10 - 0.5) * ((servo->next_ang -  servo->initial_ang) - 10) + servo->initial_ang + 10;
 
+      for (int z = 0; z < 10; z++) {
       servo->go_to(angle);
       HAL_Delay(angle * min_delay);
       servo->go_to(servo->overshoot_ang);
       HAL_Delay(100);
       servo->go_to(servo->initial_ang);
-      HAL_Delay(2000);
+      HAL_Delay(100);
+      }
       current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
       trace_printf("weight: %.2f g, angle: %.d\n", current_amount, angle);
     }

@@ -31,8 +31,8 @@ Servo::Servo(int servo) {
       case 2:
         htim = &htim2;
         channel = TIM_CHANNEL_2;
-        overshoot_ang = 47;
-        initial_ang = 52;
+        overshoot_ang = 55;
+        initial_ang = 60;
         next_ang = 98;
         break;
       case 3:
