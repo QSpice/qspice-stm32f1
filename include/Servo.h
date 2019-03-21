@@ -17,12 +17,13 @@ extern "C" void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 #define MIN_DELAY 300 // 300us is the minimum delay between each tick
 
-class Servo{
+class Servo {
   private:
     TIM_HandleTypeDef *htim;
     uint32_t channel;
 
   public:
+    static int min_delay;
     int overshoot_ang;
     int initial_ang;
     int next_ang;
@@ -32,6 +33,7 @@ class Servo{
     void go_to(int);
     void inc_to(int, int);
     int ang_to_pos(int);
+    void dispense(int angle, int repetitions = 1);
 };
 
 #endif

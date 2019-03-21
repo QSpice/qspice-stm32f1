@@ -23,7 +23,7 @@ void reset_buffer(void);
 void handle_message_if_needed(void);
 
 // Dispensing
-#define NUM_WEIGHT_SAMPLES 20
+#define NUM_WEIGHT_SAMPLES 15
 #define THRESHOLD 0.05
 bool should_dispense(float target, float value);
 
@@ -74,46 +74,73 @@ int main(void) {
 //    servos[i]->go_to(60);
   }
 
-  hx711.tare(NUM_WEIGHT_SAMPLES);
+  // wait for load cell to properly tare
+  float cali = 0.0;
+
+  do {
+    hx711.tare(NUM_WEIGHT_SAMPLES);
+    cali = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
+  } while(cali > 0.0);
 
 //  while (1) {
-//    float value = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
+//    float value = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
 //    trace_printf("weight: %.2f g\n", value);
 //    HAL_Delay(1000);
 //  }
 
+//  #ifdef TEST2
+//
+//    float value = 0.0;
+//
+//    while (value < 0.2) {
+//      value = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
+//      trace_printf("weight: %.2f g\n", value);
+//
+//      Servo* servo = servos[1];
+//      servo->dispense(10, 5);
+//      HAL_Delay(100);
+//    }
+//
+//  #endif
+
   #ifdef TEST
-    hx711.tare(NUM_WEIGHT_SAMPLES);
-
-    Servo* servo = servos[1];
+    Servo* servo = servos[0];
     // int delay = 150;
-    int min_delay = 3;
 
-    float current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
-    float order_amount = 2.3;
-    int angle = servo->initial_ang;
+    float current_amount = 0.0;
+    float previous_amount = 0.0;
+    float order_amount = 0.25;
+    int low_angle = 5;
+
+    // try to find lower angle for something to dispense
+    do {
+      low_angle += 5;
+      servo->dispense(low_angle, 5);
+      HAL_Delay(50);
+      current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
+//      trace_printf("weight: %.2f g, angle: %.d\n", current_amount, low_angle);
+
+    } while (current_amount < THRESHOLD);
 
     while (should_dispense(order_amount, current_amount)) {
 
-      if (order_amount > 10)
-        angle = servo->next_ang;
-      else if ((order_amount - current_amount) < 0.2)
-        angle = servo->initial_ang + 5;
-      else if ((order_amount - current_amount) < 0.5)
-        angle = servo->initial_ang + 10;
-      else
-        angle = (order_amount - 0.5) / (10 - 0.5) * ((servo->next_ang -  servo->initial_ang) - 10) + servo->initial_ang + 10;
+//      if (order_amount > 10)
+//        angle = servo->next_ang;
+//      else if ((order_amount - current_amount) < 0.2)
+//        angle = servo->initial_ang + 5;
+//      else if ((order_amount - current_amount) < 0.5)
+//        angle = servo->initial_ang + 10;
+//      else
+//        angle = (order_amount - 0.5) / (10 - 0.5) * ((servo->next_ang -  servo->initial_ang) - 10) + servo->initial_ang + 10;
 
-      for (int z = 0; z < 10; z++) {
-      servo->go_to(angle);
-      HAL_Delay(angle * min_delay);
-      servo->go_to(servo->overshoot_ang);
-      HAL_Delay(100);
-      servo->go_to(servo->initial_ang);
-      HAL_Delay(100);
-      }
-      current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
-      trace_printf("weight: %.2f g, angle: %.d\n", current_amount, angle);
+
+
+      servo->dispense(low_angle, 5);
+
+      previous_amount = current_amount;
+      current_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
+
+      trace_printf("weight: %.2f g, angle: %.d\n", current_amount, low_angle);
     }
 
   trace_printf("done\n");

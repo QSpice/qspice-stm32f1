@@ -6,6 +6,8 @@ TIM_HandleTypeDef htim3;
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 
+int Servo::min_delay = 3;
+
 void Servo::init() {
     MX_TIM2_Init();
     MX_TIM3_Init();
@@ -96,6 +98,21 @@ void Servo::inc_to(int ang, int delay) {
 
 int Servo::ang_to_pos(int ang) {
     return (MAX_POS - MIN_POS) / (MAX_ANG - MIN_ANG) * ang + MIN_POS;
+}
+
+void Servo::dispense(int angle, int repetitions) {
+  int true_angle = angle + initial_ang;
+  int angle_delay = angle * Servo::min_delay;
+  int overshoot_delay = (true_angle - overshoot_ang) * Servo::min_delay;
+  int final_delay = (initial_ang - overshoot_ang) * Servo::min_delay;
+  for (int i = 0; i < repetitions; i++) {
+    go_to(true_angle);
+    HAL_Delay(angle_delay);
+    go_to(overshoot_ang);
+    HAL_Delay(overshoot_delay);
+    go_to(initial_ang);
+    HAL_Delay(final_delay);
+  }
 }
 
 /* TIM2 init function */
