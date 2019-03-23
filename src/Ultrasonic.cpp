@@ -59,10 +59,7 @@ uint16_t Ultrasonic::ping() {
   delay_us(20);
   HAL_GPIO_WritePin(GPIOB, _trigger_pin, GPIO_PIN_RESET);
 
-  // quit if measurement takes too long
-  uint16_t max_time = HAL_GetTick() + 2;
-
-  while ((!echo_start || !echo_end) && HAL_GetTick() < max_time);
+  while ((!echo_start || !echo_end));
 
   return echo_start == 0 || echo_end == 0 ? NO_ECHO : echo_end - echo_start;
 }

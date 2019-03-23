@@ -22,23 +22,32 @@ volatile bool message_received;
 void reset_buffer(void);
 void handle_message_if_needed(void);
 
-// Dispensing
+// Dispensing Algorithm
 #define NUM_WEIGHT_SAMPLES 15
-#define THRESHOLD 0.06
+#define WEIGHT_THRESHOLD 0.06
 #define SHAKES 4
-bool should_dispense(float target, float value);
+#define INITIAL_ANGLE 5
 
+float order_amounts[6] = {0};
+float curr_amount = 0.0;
+float prev_amount = 0.0;
+int curr_angle = INITIAL_ANGLE;
+int low_angle = INITIAL_ANGLE;
+int curr_location = 0;
 volatile bool is_processing_order = false;
 bool is_dispensing = false;
-int current_location = 0;
+
+void calibrate();
+void find_low_angle(float max_delta=0.1);
+void dispense(int safety=2);
+bool should_dispense(float target, float value);
+void reset_dispenser();
+
 
 Servo* servos[6];
+HX711* hx711;
 
-
-
-// Ordering
 volatile bool is_ordering = false;
-float order_amounts[6] = {0};
 void parse_order(char levels[28]);
 
 #define MAX_SPICE_HEIGHT 9.0
@@ -52,7 +61,7 @@ Ultrasonic d_sensors[6] = {
     Ultrasonic(GPIO_PIN_15)
 };
 
-#define TEST
+#define DBG_MSG
 
 int main(void) {
   // MCU Configuration
@@ -66,82 +75,13 @@ int main(void) {
   Interface::init();
 
   Interface ui;
+  hx711 = new HX711();
 
-  HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
-
-  HX711 hx711;
   for (int i = 0; i < 6; i++){
     servos[i] = new Servo(i+1);
-  // servos[i]->go_to(65);
-  //}
-  //  while(1);
   }
 
-  // wait for load cell to properly tare
-  float cali = 0.0;
-
-  do {
-    hx711.tare(NUM_WEIGHT_SAMPLES);
-    cali = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
-  } while(cali > 0.0);
-
-  #ifdef TEST
-    Servo* servo = servos[0];
-    // int delay = 150;
-
-    float curr_amount = 0.0;
-    float prev_amount = 0.0;
-    float temp_amount = 0.0;
-    float order_amount = 5.5;
-    int low_angle = 5;
-    int angle = 0;
-    int safety = 2;
-
-    // try to find lower angle for something to dispense
-    do {
-      low_angle += 3;
-      servo->dispense(low_angle, SHAKES);
-      HAL_Delay(100);
-      do{
-        temp_amount = curr_amount;
-        curr_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
-        trace_printf(".");
-      } while (abs(curr_amount - temp_amount)  > 0.1);
-      trace_printf("weight: %.2f, low angle: %d\n", curr_amount, low_angle);
-    } while (curr_amount < THRESHOLD);
-
-//    trace_printf("weight: %.2f, low angle: %d\n", curr_amount, low_angle);
-    angle = low_angle;
-
-    while (should_dispense(order_amount, curr_amount)) {
-      float delta = curr_amount - prev_amount;
-      float projection = curr_amount + delta * safety;
-
-      if (projection > order_amount) {
-        int decrement = (projection / order_amount) * ((float)angle / ((float)low_angle / 2)) * safety;
-        angle = max(low_angle, angle - decrement);
-      } else {
-        int increment = (order_amount / projection) * (angle / low_angle);
-        angle = min(100, angle + increment);
-      }
-
-      servo->dispense(angle, SHAKES);
-      HAL_Delay(50);
-
-      prev_amount = curr_amount;
-      curr_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
-//      do{
-//        temp_amount = curr_amount;
-//        curr_amount = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES);
-//        trace_printf(".");
-//      } while (abs(curr_amount - temp_amount)  > 0.1);
-
-      trace_printf("weight: %.2f g, angle: %d, projection: %.2f\n", curr_amount, angle, projection);
-    }
-
-  trace_printf("done\n");
-  while (1) {}
-  #endif
+  HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
 
   while (1) {
     ui.render();
@@ -152,84 +92,132 @@ int main(void) {
     //
     //  }
 
-    #ifdef DEBUGGING
-      trace_printf("weight: %.2f g\n", hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000);
-    #endif
-
-
     // Dispensing
     if (is_processing_order) {
-      // currently dispensing a spice
-      Servo* servo;
-
       if (is_dispensing) {
 
-        float weight = hx711.get_cal_weight(NUM_WEIGHT_SAMPLES) * 1000;
-        float target = order_amounts[current_location];
-
-        #ifdef DEBUGGING
-          trace_printf("weight: %.2f g, %.2f, %d\n", weight, target, current_location);
-        #endif
-
-        // what if weight decreases
-        // what if weight doesnt increase
-        // what if weight increases but supposed to stop
-        // what if not enough spice
-        // what if weight was 300 pounds (like fr, if the weight changes dramatically)
-
-
-        if (weight < target) {
-//          servo.go_to(25);
-//          HAL_Delay(500);
-//          servo.go_to(0);
-//          HAL_Delay(500);
-//          servo.go_to(10);
-//          HAL_Delay(500);
+        if (should_dispense(order_amounts[curr_location], curr_amount)) {
+          dispense();
         } else {
           is_dispensing = false;
-          current_location++;
+          order_amounts[curr_location] = 0;
+          curr_location++;
         }
 
       // a new spice is ready to be dispensed
       } else {
         // if we reached last container, stop processing order
-        while (order_amounts[current_location] <= 0 && current_location < 6)
-          current_location++;
+        while (order_amounts[curr_location] <= 0 && curr_location < 6)
+          curr_location++;
 
-        if (current_location >= 6) {
+        if (curr_location >= 6) {
           is_processing_order = false;
+          curr_location = 0;
           continue;
         }
 
-        // first dispense
-        hx711.tare(NUM_WEIGHT_SAMPLES);
+        reset_dispenser();
+
+        // Calibration
+        calibrate();
+        find_low_angle();
         is_dispensing = true;
-
-        servo = servos[current_location];
-
-        servo->go_to(servo->initial_ang + 10);
-        HAL_Delay(100);
-        servo->go_to(servo->initial_ang);
-
       }
     }
 
-
   } // end main loop
+}
+
+void calibrate() {
+  float cali = 0.0;
+
+  #ifdef DBG_MSG
+    trace_printf("Calibrating...\n");
+  #endif
+
+  do {
+    hx711->tare(NUM_WEIGHT_SAMPLES);
+    cali = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
+  } while(cali > 0.0);
+}
+
+void find_low_angle(float max_delta) {
+  float prev_amount = 0.0;
+  Servo* servo = servos[curr_location];
+
+  // wait for amount of spice dispensed to be above threshold
+  do {
+    low_angle += 3;
+    servo->dispense(low_angle, SHAKES);
+
+    // wait for weight measurements to be similar
+    do {
+      prev_amount = curr_amount;
+      curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
+
+      #ifdef DBG_MSG
+        trace_printf(".");
+      #endif
+
+    } while (abs(curr_amount - prev_amount) > max_delta);
+
+    #ifdef DBG_MSG
+      trace_printf("weight: %.2f, low angle: %d\n", curr_amount, low_angle);
+    #endif
+  } while (curr_amount < WEIGHT_THRESHOLD);
+
+  curr_angle = low_angle;
+}
+
+void dispense(int safety) {
+  Servo* servo = servos[curr_location];
+  float order_amount = order_amounts[curr_location];
+
+  float delta = curr_amount - prev_amount;
+  float projection = curr_amount + delta * safety;
+
+  if (projection > order_amount) {
+    int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * safety * 2;
+    curr_angle = max(low_angle, curr_angle - decrement);
+  } else {
+    int increment = (order_amount / projection) * (curr_angle / low_angle);
+    curr_angle = min(100, curr_angle + increment);
+  }
+
+  servo->dispense(curr_angle, SHAKES);
+  HAL_Delay(50);
+
+  prev_amount = curr_amount;
+  curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
+
+  #ifdef DBG_MSG
+    trace_printf("weight: %.2f g, angle: %d, projection: %.2f\n", curr_amount, curr_angle, projection);
+  #endif
 }
 
 bool should_dispense(float target, float value) {
   float result = target - value;
 
-  return result > THRESHOLD && result > 0;
+  return result > WEIGHT_THRESHOLD && result > 0;
+}
+
+void reset_dispenser() {
+  curr_amount = 0.0;
+  prev_amount = 0.0;
+  curr_angle = INITIAL_ANGLE;
+  low_angle = INITIAL_ANGLE;
 }
 
 void read_spice_levels(char* levels) {
   int m[6] = {0};
 
   for (uint8_t i = 0; i < 6; i++) {
-    float distance = d_sensors[i].get_distance(3);
+    float distance = d_sensors[i].get_distance(5);
+    #ifdef DBG_MSG
+      trace_printf("%d - height: %.2f cm\n", i+1, distance);
+    #endif
     m[i] = 100 - (int)min((distance / MAX_SPICE_HEIGHT)*100, 100);
+    HAL_Delay(100);
   }
 
   sprintf(levels, "OK %d,%d,%d,%d,%d,%d\n", m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -246,9 +234,11 @@ void handle_message_if_needed() {
   if (strncmp(rec_buffer, "QUIT", 4) == 0) {
     status = "OK\n";
     is_processing_order = false;
+    is_dispensing = false;
+    reset_dispenser();
   } else if (is_ordering) {
     status = "INPR\n";
-  } else if (is_dispensing) {
+  } else if (is_processing_order) {
     status = "BUSY\n";
   } else if (strncmp(rec_buffer, "POLL", 4) == 0) {
     // TODO: actually read spice levels
