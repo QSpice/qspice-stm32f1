@@ -8,7 +8,7 @@ int comp(const void* a, const void* b) {
 }
 
 // Obtain non-calibrated average weight from HX711
-double HX711::get_raw_weight(int nbr_samples) {
+int HX711::get_raw_weight(int nbr_samples) {
     int samples[nbr_samples] = {0};
 
     for (int i = 0; i < nbr_samples; i++) {
@@ -32,7 +32,7 @@ double HX711::get_raw_weight(int nbr_samples) {
 
     qsort(samples, nbr_samples, sizeof(int), comp);
 
-    return (double) samples[nbr_samples >> 1];
+    return samples[nbr_samples >> 1];
 }
 
 // Obtain calibrated weight from HX711

@@ -11,7 +11,7 @@ class HX711 {
     float cal = 7127660;
 
   public:
-    double get_raw_weight(int);
+    int get_raw_weight(int);
     float get_cal_weight(int);
     void tare(int);
 };
