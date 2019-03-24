@@ -24,9 +24,9 @@ class Servo {
 
   public:
     static int min_delay;
-    int overshoot_ang;
-    int initial_ang;
-    int next_ang;
+    int overshoot_ang = 55;
+    int initial_ang = 60;
+    int next_ang = 101;
 
     static void init();
     Servo(int);

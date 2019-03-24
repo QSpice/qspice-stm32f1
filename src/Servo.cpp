@@ -26,44 +26,26 @@ Servo::Servo(int servo) {
       case 1:
         htim = &htim2;
         channel = TIM_CHANNEL_1;
-        overshoot_ang = 55;
-        initial_ang = 60;
-        next_ang = 101;
         break;
       case 2:
         htim = &htim2;
         channel = TIM_CHANNEL_2;
-        overshoot_ang = 55;
-        initial_ang = 60;
-        next_ang = 98;
         break;
       case 3:
         htim = &htim2;
         channel = TIM_CHANNEL_3;
-        overshoot_ang = 49;
-        initial_ang = 55;
-        next_ang = 101;
         break;
       case 4:
         htim = &htim2;
         channel = TIM_CHANNEL_4;
-        overshoot_ang = 47;
-        initial_ang = 52;
-        next_ang = 101;
         break;
       case 5:
         htim = &htim3;
         channel = TIM_CHANNEL_1;
-        overshoot_ang = 52;
-        initial_ang = 57;
-        next_ang = 105;
         break;
       case 6:
         htim = &htim3;
         channel = TIM_CHANNEL_2;
-        overshoot_ang = 50;
-        initial_ang = 55;
-        next_ang = 101;
         break;
       default:
         return;

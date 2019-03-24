@@ -65,6 +65,7 @@ Ultrasonic d_sensors[6] = {
 };
 
 #define DBG_MSG
+//#define TEST_SCALE
 
 int main(void) {
   // MCU Configuration
@@ -85,6 +86,15 @@ int main(void) {
   }
 
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
+
+  #ifdef TEST_SCALE
+    calibrate();
+    while(1) {
+      float value = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
+      trace_printf("weight: %.2f\n", value);
+      HAL_Delay(50);
+    }
+  #endif
 
   while (1) {
     ui.render();
@@ -199,7 +209,7 @@ void dispense(int safety) {
   }
 
   servo->dispense(curr_angle, SHAKES);
-  HAL_Delay(50);
+  HAL_Delay(100);
 
   prev_amount = curr_amount;
   curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
@@ -226,12 +236,12 @@ void read_spice_levels(char* levels) {
   int m[6] = {0};
 
   for (uint8_t i = 0; i < 6; i++) {
-    float distance = d_sensors[i].get_distance(5);
+    float distance = d_sensors[i].get_distance(3);
     #ifdef DBG_MSG
 //      trace_printf("%d - height: %.2f cm\n", i+1, distance);
     #endif
     m[i] = 100 - (int)min((distance / MAX_SPICE_HEIGHT)*100, 100);
-    HAL_Delay(10);
+    HAL_Delay(20);
   }
 
   sprintf(levels, "OK %d,%d,%d,%d,%d,%d\n", m[0], m[1], m[2], m[3], m[4], m[5]);
@@ -249,6 +259,7 @@ void handle_message_if_needed() {
     status = "OK\n";
     is_processing_order = false;
     is_dispensing = false;
+    is_calibrated = false;
     reset_dispenser();
   } else if (is_ordering) {
     status = "INPR\n";

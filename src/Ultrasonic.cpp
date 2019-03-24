@@ -36,7 +36,7 @@ float Ultrasonic::get_distance(uint16_t samples) {
     }
 
     if (i < samples)
-      HAL_Delay(100);
+      HAL_Delay(75);
   }
 
   stop_timer_capture();
