@@ -38,9 +38,10 @@ int low_angle = INITIAL_ANGLE;
 int curr_location = 0;
 volatile bool is_processing_order = false;
 bool is_dispensing = false;
+bool is_calibrated = false;
 
 void calibrate();
-void find_low_angle(float max_delta=0.1);
+bool find_low_angle(float max_delta=0.1);
 void dispense(int safety=2);
 bool should_dispense(float target, float value);
 void reset_dispenser();
@@ -103,6 +104,7 @@ int main(void) {
           dispense();
         } else {
           is_dispensing = false;
+          is_calibrated = false;
           order_amounts[curr_location] = 0;
           curr_location++;
         }
@@ -120,12 +122,16 @@ int main(void) {
           continue;
         }
 
-        reset_dispenser();
+        if (!is_calibrated) {
+          reset_dispenser();
+          calibrate();
 
-        // Calibration
-        calibrate();
-        find_low_angle();
-        is_dispensing = true;
+          is_calibrated = true;
+        }
+
+        if (find_low_angle()) {
+          is_dispensing = true;
+        }
       }
     }
 
@@ -145,12 +151,12 @@ void calibrate() {
   } while(cali > 0.0);
 }
 
-void find_low_angle(float max_delta) {
+bool find_low_angle(float max_delta) {
   float prev_amount = 0.0;
   Servo* servo = servos[curr_location];
 
   // wait for amount of spice dispensed to be above threshold
-  do {
+  if (curr_amount < WEIGHT_THRESHOLD) {
     low_angle += 3;
     servo->dispense(low_angle, SHAKES);
 
@@ -168,9 +174,13 @@ void find_low_angle(float max_delta) {
     #ifdef DBG_MSG
       trace_printf("weight: %.2f, low angle: %d\n", curr_amount, low_angle);
     #endif
-  } while (curr_amount < WEIGHT_THRESHOLD);
 
-  curr_angle = low_angle;
+    return false;
+  } else {
+    curr_angle = low_angle;
+    return true;
+  }
+
 }
 
 void dispense(int safety) {
@@ -218,10 +228,10 @@ void read_spice_levels(char* levels) {
   for (uint8_t i = 0; i < 6; i++) {
     float distance = d_sensors[i].get_distance(5);
     #ifdef DBG_MSG
-      trace_printf("%d - height: %.2f cm\n", i+1, distance);
+//      trace_printf("%d - height: %.2f cm\n", i+1, distance);
     #endif
     m[i] = 100 - (int)min((distance / MAX_SPICE_HEIGHT)*100, 100);
-    HAL_Delay(100);
+    HAL_Delay(10);
   }
 
   sprintf(levels, "OK %d,%d,%d,%d,%d,%d\n", m[0], m[1], m[2], m[3], m[4], m[5]);
