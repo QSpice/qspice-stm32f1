@@ -8,7 +8,7 @@ static void MX_I2C1_Init(void);
 static void MX_RTC_Init(void);
 static void MX_TIM4_Init(void);
 
-static Page page = IDLE;
+Page page = IDLE;
 static SSD1306 display;
 
 static bool is_changing_hour = false;
@@ -224,7 +224,7 @@ void Interface::render() {
 
     case ANOTHER_ONE: {
       display.set_cursor(0, 0);
-      char title[16]; sprintf(title, "(%d) %s", selected_container, spices[selected_spice].name);
+      char title[16]; sprintf(title, "(%d) %s", selected_container + 1, spices[selected_spice].name);
       display.draw_string(title, consolas);
 
       display.set_cursor(0, consolas.height);
@@ -253,6 +253,7 @@ void Interface::render() {
       uint8_t centerX = (SSD1306_WIDTH - consolas.descriptors[0].width * strlen("Dispensing...")) / 2;
       uint8_t centerY = (SSD1306_HEIGHT - consolas.height) / 2;
 
+      display.fill(SSD1306::Black);
       display.set_cursor(centerX, centerY);
       display.draw_string("Dispensing...", consolas);
     }
@@ -313,7 +314,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         page = ACTION_MENU;
       } else {
         page = SELECT_SPICE;
-        selected_container = position;
+        selected_container = position - 1;
       }
 
       position = 1;
@@ -325,7 +326,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         page = SELECT_CONTAINER;
       } else {
         page = SELECT_AMOUNT;
-        selected_spice = position;
+        selected_spice = position - 1;
         selected_amount = 1;
       }
 

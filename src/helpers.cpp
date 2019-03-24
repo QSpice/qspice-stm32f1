@@ -31,7 +31,7 @@ float helpers::amount_as_float(int pos) {
       return 0.5;
 
     default:
-      return pos;
+      return pos - 2;
   }
 }
 

@@ -28,6 +28,8 @@ void handle_message_if_needed(void);
 #define SHAKES 4
 #define INITIAL_ANGLE 5
 
+extern Page page;
+
 float order_amounts[6] = {0};
 float curr_amount = 0.0;
 float prev_amount = 0.0;
@@ -88,9 +90,10 @@ int main(void) {
     handle_message_if_needed();
 
     // TODO: handle ordering
-    //  if (is_ordering) {
-    //
-    //  }
+      if (page == DISPENSING && !is_processing_order) {
+        is_processing_order = true;
+        ui.render();
+      }
 
     // Dispensing
     if (is_processing_order) {
@@ -112,6 +115,7 @@ int main(void) {
 
         if (curr_location >= 6) {
           is_processing_order = false;
+          page = IDLE;
           curr_location = 0;
           continue;
         }
