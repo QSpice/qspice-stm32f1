@@ -24,7 +24,9 @@ void handle_message_if_needed(void);
 
 // Dispensing Algorithm
 #define NUM_WEIGHT_SAMPLES 15
+#define MIN_OFFSET 320000
 #define WEIGHT_THRESHOLD 0.06
+#define MAX_WEIGHT_CNT 5
 #define SHAKES 4
 #define INITIAL_ANGLE 5
 
@@ -33,6 +35,7 @@ extern Page page;
 float order_amounts[6] = {0};
 float curr_amount = 0.0;
 float prev_amount = 0.0;
+int weight_cnt = 0;
 int curr_angle = INITIAL_ANGLE;
 int low_angle = INITIAL_ANGLE;
 int curr_location = 0;
@@ -40,7 +43,7 @@ volatile bool is_processing_order = false;
 bool is_dispensing = false;
 bool is_calibrated = false;
 
-void calibrate();
+bool calibrate();
 bool find_low_angle(float max_delta=0.1);
 void dispense(int safety=2);
 bool should_dispense(float target, float value);
@@ -110,12 +113,13 @@ int main(void) {
     if (is_processing_order) {
       if (is_dispensing) {
 
-        if (should_dispense(order_amounts[curr_location], curr_amount)) {
+        if (weight_cnt < MAX_WEIGHT_CNT && should_dispense(order_amounts[curr_location], curr_amount)) {
           dispense();
         } else {
           is_dispensing = false;
           is_calibrated = false;
           order_amounts[curr_location] = 0;
+          weight_cnt = 0;
           curr_location++;
         }
 
@@ -134,35 +138,58 @@ int main(void) {
 
         if (!is_calibrated) {
           reset_dispenser();
-          calibrate();
 
+          if (calibrate())
           is_calibrated = true;
+          else{
+            #ifdef DBG_MSG
+              trace_printf("No Bowl, Ended Order\n");
+            #endif
+            is_processing_order = false;
+            continue;
+          }
         }
 
-        if (find_low_angle()) {
+        if (weight_cnt < MAX_WEIGHT_CNT && find_low_angle()) {
           is_dispensing = true;
+          weight_cnt = 0;
         }
+        // TODO: Send error message to user when spice is stuck
+        else if (weight_cnt >= MAX_WEIGHT_CNT){
+          #ifdef DBG_MSG
+              trace_printf("Reached Max Weight Count, Skipping Spice\n");
+          #endif
+          is_dispensing = false;
+          is_calibrated = false;
+          order_amounts[curr_location] = 0;
+          weight_cnt = 0;
+          curr_location++;
+        }
+
       }
     }
 
   } // end main loop
 }
 
-void calibrate() {
+bool calibrate() {
   float cali = 0.0;
+  int offset = 0;
 
   #ifdef DBG_MSG
     trace_printf("Calibrating...\n");
   #endif
 
   do {
-    hx711->tare(NUM_WEIGHT_SAMPLES);
+    offset = hx711->tare(NUM_WEIGHT_SAMPLES);
     cali = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
   } while(cali > 0.0);
+
+  return offset > MIN_OFFSET;
 }
 
 bool find_low_angle(float max_delta) {
-  float prev_amount = 0.0;
+  float temp_amount = 0.0;
   Servo* servo = servos[curr_location];
 
   // wait for amount of spice dispensed to be above threshold
@@ -172,19 +199,23 @@ bool find_low_angle(float max_delta) {
 
     // wait for weight measurements to be similar
     do {
-      prev_amount = curr_amount;
+      temp_amount = curr_amount;
       curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
 
       #ifdef DBG_MSG
         trace_printf(".");
       #endif
 
-    } while (abs(curr_amount - prev_amount) > max_delta);
+    } while (abs(curr_amount - temp_amount) > max_delta);
 
     #ifdef DBG_MSG
       trace_printf("weight: %.2f, low angle: %d\n", curr_amount, low_angle);
     #endif
 
+    if (curr_amount - prev_amount < WEIGHT_THRESHOLD)
+      weight_cnt++;
+
+    prev_amount = curr_amount;
     return false;
   } else {
     curr_angle = low_angle;
@@ -213,6 +244,8 @@ void dispense(int safety) {
 
   prev_amount = curr_amount;
   curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
+  if (curr_amount - prev_amount < WEIGHT_THRESHOLD)
+    weight_cnt++;
 
   #ifdef DBG_MSG
     trace_printf("weight: %.2f g, angle: %d, projection: %.2f\n", curr_amount, curr_angle, projection);
@@ -251,7 +284,9 @@ void handle_message_if_needed() {
   if (!message_received)
     return;
 
+  #ifdef DBG_MSG
   trace_printf("Messaged received: %s", rec_buffer);
+  #endif
 
   const char* status = "UNK";
 
@@ -283,7 +318,10 @@ void handle_message_if_needed() {
   reset_buffer();
   message_received = false;
   HAL_UART_Transmit(&huart1, (u_int8_t*)status, strlen(status), HAL_MAX_DELAY);
+
+  #ifdef DBG_MSG
   trace_printf(status);
+  #endif
 }
 
 void parse_order(char* order) {

@@ -13,7 +13,7 @@ class HX711 {
   public:
     int get_raw_weight(int);
     float get_cal_weight(int);
-    void tare(int);
+    int tare(int);
 };
 
 #endif

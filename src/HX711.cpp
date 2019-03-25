@@ -42,6 +42,7 @@ float HX711::get_cal_weight(int nbr_samples) {
 }
 
 // Tare by setting the offset
-void HX711::tare (int nbr_samples) {
+int HX711::tare (int nbr_samples) {
     offset = get_raw_weight(nbr_samples);
+    return offset;
 }
