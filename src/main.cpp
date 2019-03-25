@@ -56,7 +56,8 @@ HX711* hx711;
 volatile bool is_ordering = false;
 void parse_order(char levels[28]);
 
-#define MAX_SPICE_HEIGHT 9.0
+#define MAX_SPICE_HEIGHT 7.1
+#define MIN_SPICE_HEIGHT 3.8
 void read_spice_levels(char*);
 Ultrasonic d_sensors[6] = {
     Ultrasonic(GPIO_PIN_10),
@@ -130,6 +131,9 @@ int main(void) {
           curr_location++;
 
         if (curr_location >= 6) {
+          #ifdef DBG_MSG
+            trace_printf("Finished Spice Order\n");
+          #endif
           is_processing_order = false;
           page = IDLE;
           curr_location = 0;
@@ -235,15 +239,25 @@ void dispense(int safety) {
     int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * safety * 2;
     curr_angle = max(low_angle, curr_angle - decrement);
   } else {
-    int increment = (order_amount / projection) * (curr_angle / low_angle);
+    int increment = (order_amount / projection) * ((float)curr_angle / (float)low_angle);
     curr_angle = min(100, curr_angle + increment);
   }
 
   servo->dispense(curr_angle, SHAKES);
-  HAL_Delay(100);
+  //HAL_Delay(100);
 
   prev_amount = curr_amount;
-  curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
+  float temp_amount = curr_amount;
+  do {
+        temp_amount = curr_amount;
+        curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
+
+        #ifdef DBG_MSG
+          trace_printf(".");
+        #endif
+
+  } while (abs(curr_amount - temp_amount) > WEIGHT_THRESHOLD);
+
   if (curr_amount - prev_amount < WEIGHT_THRESHOLD)
     weight_cnt++;
 
@@ -271,9 +285,9 @@ void read_spice_levels(char* levels) {
   for (uint8_t i = 0; i < 6; i++) {
     float distance = d_sensors[i].get_distance(3);
     #ifdef DBG_MSG
-//      trace_printf("%d - height: %.2f cm\n", i+1, distance);
+      trace_printf("%d - height: %.2f cm\n", i+1, distance);
     #endif
-    m[i] = 100 - (int)min((distance / MAX_SPICE_HEIGHT)*100, 100);
+    m[i] = (int)max(min(100 - ((distance-MIN_SPICE_HEIGHT) / (MAX_SPICE_HEIGHT-MIN_SPICE_HEIGHT))*100, 100),0);
     HAL_Delay(20);
   }
 
