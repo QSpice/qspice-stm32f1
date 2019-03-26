@@ -72,7 +72,7 @@ Ultrasonic d_sensors[6] = {
     Ultrasonic(GPIO_PIN_15)
 };
 
-//#define DBG_MSG
+#define DBG_MSG
 //#define TEST_SCALE
 
 int main(void) {
@@ -255,13 +255,13 @@ void dispense() {
 
   servo->dispense(curr_angle, SHAKES);
 
+  float temp_amount = 0.0;
+  curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
   prev_amount = curr_amount;
-  float temp_amount = curr_amount;
-  do {
+  for (int i = 0; curr_amount > 0.95*order_amount && abs(curr_amount - temp_amount) > WEIGHT_THRESHOLD && i < 5; i++) {
         temp_amount = curr_amount;
         curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
-
-  } while (curr_amount > 0.95*order_amount && abs(curr_amount - temp_amount) > WEIGHT_THRESHOLD);
+  }
 
   if (curr_amount - prev_amount < WEIGHT_THRESHOLD)
     weight_cnt++;
