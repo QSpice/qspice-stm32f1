@@ -27,8 +27,10 @@ void handle_message_if_needed(void);
 #define MIN_OFFSET 320000
 #define WEIGHT_THRESHOLD 0.06
 #define MAX_WEIGHT_CNT 5
+#define MAX_LOW_ANGLE_WEIGHT_CNT 10
 #define SHAKES 4
-#define INITIAL_ANGLE 5
+#define INITIAL_ANGLE 9
+#define SAFETY 2
 
 extern Page page;
 
@@ -36,6 +38,8 @@ float order_amounts[6] = {0};
 float curr_amount = 0.0;
 float prev_amount = 0.0;
 int weight_cnt = 0;
+int low_angle_cnt = 0;
+int dispense_cnt = 0;
 int curr_angle = INITIAL_ANGLE;
 int low_angle = INITIAL_ANGLE;
 int curr_location = 0;
@@ -45,7 +49,7 @@ bool is_calibrated = false;
 
 bool calibrate();
 bool find_low_angle(float max_delta=0.1);
-void dispense(int safety=2);
+void dispense();
 bool should_dispense(float target, float value);
 void reset_dispenser();
 
@@ -68,7 +72,7 @@ Ultrasonic d_sensors[6] = {
     Ultrasonic(GPIO_PIN_15)
 };
 
-#define DBG_MSG
+//#define DBG_MSG
 //#define TEST_SCALE
 
 int main(void) {
@@ -121,6 +125,7 @@ int main(void) {
           is_calibrated = false;
           order_amounts[curr_location] = 0;
           weight_cnt = 0;
+          dispense_cnt = 0;
           curr_location++;
         }
 
@@ -144,29 +149,30 @@ int main(void) {
           reset_dispenser();
 
           if (calibrate())
-          is_calibrated = true;
+            is_calibrated = true;
           else{
+            is_processing_order = false;
+            page = IDLE;
             #ifdef DBG_MSG
               trace_printf("No Bowl, Ended Order\n");
             #endif
-            is_processing_order = false;
             continue;
           }
         }
 
-        if (weight_cnt < MAX_WEIGHT_CNT && find_low_angle()) {
+        if (low_angle_cnt < MAX_LOW_ANGLE_WEIGHT_CNT && find_low_angle()) {
           is_dispensing = true;
-          weight_cnt = 0;
+          low_angle_cnt = 0;
         }
         // TODO: Send error message to user when spice is stuck
-        else if (weight_cnt >= MAX_WEIGHT_CNT){
+        else if (low_angle_cnt >= MAX_LOW_ANGLE_WEIGHT_CNT){
           #ifdef DBG_MSG
               trace_printf("Reached Max Weight Count, Skipping Spice\n");
           #endif
           is_dispensing = false;
           is_calibrated = false;
           order_amounts[curr_location] = 0;
-          weight_cnt = 0;
+          low_angle_cnt = 0;
           curr_location++;
         }
 
@@ -193,58 +199,61 @@ bool calibrate() {
 }
 
 bool find_low_angle(float max_delta) {
+  low_angle_cnt++;
   float temp_amount = 0.0;
   Servo* servo = servos[curr_location];
 
   // wait for amount of spice dispensed to be above threshold
   if (curr_amount < WEIGHT_THRESHOLD) {
-    low_angle += 3;
+    low_angle += low_angle_cnt;
     servo->dispense(low_angle, SHAKES);
 
     // wait for weight measurements to be similar
-    do {
+    curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
+    for (int i = 0; abs(curr_amount - temp_amount) > max_delta && i < 2; i++) {
       temp_amount = curr_amount;
       curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
 
-      #ifdef DBG_MSG
-        trace_printf(".");
-      #endif
-
-    } while (abs(curr_amount - temp_amount) > max_delta);
+//      #ifdef DBG_MSG
+//        trace_printf(".");
+//      #endif
+    }
 
     #ifdef DBG_MSG
       trace_printf("weight: %.2f, low angle: %d\n", curr_amount, low_angle);
     #endif
 
-    if (curr_amount - prev_amount < WEIGHT_THRESHOLD)
-      weight_cnt++;
-
-    prev_amount = curr_amount;
     return false;
   } else {
+    if (curr_amount > 0.1){
+      int adj = (curr_amount / 0.1) * SAFETY;
+      low_angle -= adj;
+    }
+
     curr_angle = low_angle;
+
     return true;
   }
 
 }
 
-void dispense(int safety) {
+void dispense() {
+  dispense_cnt++;
   Servo* servo = servos[curr_location];
   float order_amount = order_amounts[curr_location];
 
   float delta = curr_amount - prev_amount;
-  float projection = curr_amount + delta * safety;
+  float projection = curr_amount + delta * SAFETY;
 
   if (projection > order_amount) {
-    int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * safety * 2;
+    int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * SAFETY;
     curr_angle = max(low_angle, curr_angle - decrement);
   } else {
     int increment = (order_amount / projection) * ((float)curr_angle / (float)low_angle);
-    curr_angle = min(100, curr_angle + increment);
+    curr_angle = min(min(curr_angle + increment, curr_angle*3), 100);
   }
 
   servo->dispense(curr_angle, SHAKES);
-  //HAL_Delay(100);
 
   prev_amount = curr_amount;
   float temp_amount = curr_amount;
@@ -252,11 +261,7 @@ void dispense(int safety) {
         temp_amount = curr_amount;
         curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
 
-        #ifdef DBG_MSG
-          trace_printf(".");
-        #endif
-
-  } while (abs(curr_amount - temp_amount) > WEIGHT_THRESHOLD);
+  } while (curr_amount > 0.95*order_amount && abs(curr_amount - temp_amount) > WEIGHT_THRESHOLD);
 
   if (curr_amount - prev_amount < WEIGHT_THRESHOLD)
     weight_cnt++;
@@ -327,6 +332,7 @@ void handle_message_if_needed() {
     parse_order(order);
 
     is_processing_order = true;
+    page = DISPENSING;
   }
 
   reset_buffer();
