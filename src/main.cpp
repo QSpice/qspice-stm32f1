@@ -39,19 +39,21 @@ float curr_amount = 0.0;
 float prev_amount = 0.0;
 int weight_cnt = 0;
 int low_angle_cnt = 0;
-int dispense_cnt = 0;
 int curr_angle = INITIAL_ANGLE;
 int low_angle = INITIAL_ANGLE;
 int curr_location = 0;
 volatile bool is_processing_order = false;
 bool is_dispensing = false;
 bool is_calibrated = false;
+char issues[12] = "";
 
 bool calibrate();
 bool find_low_angle(float max_delta=0.1);
 void dispense();
 bool should_dispense(float target, float value);
 void reset_dispenser();
+void reset_state();
+void reset_for_next();
 
 
 Servo* servos[6];
@@ -72,7 +74,7 @@ Ultrasonic d_sensors[6] = {
     Ultrasonic(GPIO_PIN_15)
 };
 
-#define DBG_MSG
+//#define DBG_MSG
 //#define TEST_SCALE
 
 int main(void) {
@@ -89,9 +91,8 @@ int main(void) {
   Interface ui;
   hx711 = new HX711();
 
-  for (int i = 0; i < 6; i++){
+  for (int i = 0; i < 6; i++)
     servos[i] = new Servo(i+1);
-  }
 
   HAL_UART_Receive_IT(&huart1, (u_int8_t*)rec_buffer, sizeof(rec_buffer));
 
@@ -108,7 +109,13 @@ int main(void) {
     ui.render();
     handle_message_if_needed();
 
-    // TODO: handle ordering
+    if (page > 2) {
+      is_ordering = true;
+    } else {
+      is_ordering = false;
+    }
+
+    // Ordering
       if (page == DISPENSING && !is_processing_order) {
         is_processing_order = true;
         ui.render();
@@ -116,17 +123,14 @@ int main(void) {
 
     // Dispensing
     if (is_processing_order) {
+      // currently dispensing from a silo
       if (is_dispensing) {
 
+        // if target weight is not reached or the weight is still changing then dispense
         if (weight_cnt < MAX_WEIGHT_CNT && should_dispense(order_amounts[curr_location], curr_amount)) {
           dispense();
         } else {
-          is_dispensing = false;
-          is_calibrated = false;
-          order_amounts[curr_location] = 0;
-          weight_cnt = 0;
-          dispense_cnt = 0;
-          curr_location++;
+          reset_for_next();
         }
 
       // a new spice is ready to be dispensed
@@ -136,23 +140,27 @@ int main(void) {
           curr_location++;
 
         if (curr_location >= 6) {
+          if (strcmp(issues, "") == 0) {
+            page = DISPENSING_DONE;
+          } else {
+            page = DISPENSING_DONE_WITH_ISSUES;
+          }
+          reset_state();
+
           #ifdef DBG_MSG
             trace_printf("Finished Spice Order\n");
           #endif
-          is_processing_order = false;
-          page = IDLE;
-          curr_location = 0;
           continue;
         }
 
         if (!is_calibrated) {
           reset_dispenser();
 
-          if (calibrate())
+          if (calibrate()) {
             is_calibrated = true;
-          else{
-            is_processing_order = false;
-            page = IDLE;
+          } else {
+            reset_state();
+            page = BOWL_MISSING;
             #ifdef DBG_MSG
               trace_printf("No Bowl, Ended Order\n");
             #endif
@@ -164,16 +172,23 @@ int main(void) {
           is_dispensing = true;
           low_angle_cnt = 0;
         }
-        // TODO: Send error message to user when spice is stuck
-        else if (low_angle_cnt >= MAX_LOW_ANGLE_WEIGHT_CNT){
+
+        else if (low_angle_cnt >= MAX_LOW_ANGLE_WEIGHT_CNT) {
+          if (strcmp(issues, "") == 0) {
+            char container[2];
+            sprintf(container, "%d", curr_location + 1);
+            strcpy(issues, container);
+          } else {
+            char container[3];
+            sprintf(container, ",%d", curr_location + 1);
+            strcat(issues, container);
+          }
+
+          reset_for_next();
+
           #ifdef DBG_MSG
               trace_printf("Reached Max Weight Count, Skipping Spice\n");
           #endif
-          is_dispensing = false;
-          is_calibrated = false;
-          order_amounts[curr_location] = 0;
-          low_angle_cnt = 0;
-          curr_location++;
         }
 
       }
@@ -238,7 +253,6 @@ bool find_low_angle(float max_delta) {
 }
 
 void dispense() {
-  dispense_cnt++;
   Servo* servo = servos[curr_location];
   float order_amount = order_amounts[curr_location];
 
@@ -256,8 +270,8 @@ void dispense() {
   servo->dispense(curr_angle, SHAKES);
 
   float temp_amount = 0.0;
-  curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
   prev_amount = curr_amount;
+  curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
   for (int i = 0; curr_amount > 0.95*order_amount && abs(curr_amount - temp_amount) > WEIGHT_THRESHOLD && i < 5; i++) {
         temp_amount = curr_amount;
         curr_amount = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
@@ -282,6 +296,26 @@ void reset_dispenser() {
   prev_amount = 0.0;
   curr_angle = INITIAL_ANGLE;
   low_angle = INITIAL_ANGLE;
+}
+
+void reset_state() {
+  is_processing_order = false;
+  is_dispensing = false;
+  is_calibrated = false;
+  memset(order_amounts, 0, 6*sizeof(float));
+  weight_cnt = 0;
+  low_angle_cnt = 0;
+  curr_location = 0;
+  reset_dispenser();
+}
+
+void reset_for_next() {
+  is_dispensing = false;
+  is_calibrated = false;
+  order_amounts[curr_location] = 0;
+  low_angle_cnt = 0;
+  weight_cnt = 0;
+  curr_location++;
 }
 
 void read_spice_levels(char* levels) {
@@ -320,7 +354,6 @@ void handle_message_if_needed() {
   } else if (is_processing_order) {
     status = "BUSY\n";
   } else if (strncmp(rec_buffer, "POLL", 4) == 0) {
-    // TODO: actually read spice levels
     char levels[28] = {0};
     read_spice_levels(levels);
     status = levels;
@@ -393,7 +426,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 void SystemClock_Config(void) {
 
   // enable Data Watchpoint and Tracing (DWT) clock to measure microseconds
-  DWT->CTRL |= 1;
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;

@@ -10,6 +10,7 @@ static void MX_TIM4_Init(void);
 
 Page page = IDLE;
 static SSD1306 display;
+extern char issues[12];
 
 static bool is_changing_hour = false;
 static bool is_changing_min = false;
@@ -52,7 +53,9 @@ void Interface::init() {
   sTime.Minutes = 30;
   sTime.Seconds = 0;
 
-  HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+  if (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) != 0x32f2) {
+    HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+  }
 
 }
 
@@ -66,12 +69,14 @@ void Interface::render() {
       uint8_t centerX = (SSD1306_WIDTH - baloo.descriptors[0].width * strlen(time_string)) / 2;
       uint8_t centerY = (SSD1306_HEIGHT - baloo.height) / 2;
 
+      display.fill(SSD1306::Black);
       display.set_cursor(centerX, centerY);
       display.draw_string(time_string, baloo);
     }
     break;
 
     case ACTION_MENU: {
+      display.fill(SSD1306::Black);
       display.set_cursor(0, 0);
       display.draw_string("Select option", consolas);
       display.draw_hline(0, SSD1306_WIDTH, consolas.height + 1);
@@ -113,6 +118,7 @@ void Interface::render() {
       sprintf((char*)hour_string, "%02d", time.Hours);
       sprintf((char*)min_string, "%02d", time.Minutes);
 
+      display.fill(SSD1306::Black);
       display.set_cursor(centerX, centerY - 8);
       display.draw_string(hour_string, baloo, SSD1306::COLOR::White, is_changing_hour || position == 1);
       display.draw_string(":", baloo);
@@ -130,6 +136,7 @@ void Interface::render() {
     break;
 
     case SELECT_CONTAINER: {
+      display.fill(SSD1306::Black);
       display.set_cursor(0, 0);
       display.draw_string("Pick Container #", consolas);
       display.draw_hline(0, SSD1306_WIDTH, consolas.height + 1);
@@ -159,6 +166,7 @@ void Interface::render() {
     break;
 
     case SELECT_SPICE: {
+      display.fill(SSD1306::Black);
       display.set_cursor(0, 0);
       char title[14]; sprintf(title, "Select Spice(%d)", selected_container);
 
@@ -185,6 +193,7 @@ void Interface::render() {
     break;
 
     case SELECT_AMOUNT: {
+      display.fill(SSD1306::Black);
       display.set_cursor(0, 0);
       display.draw_string("Select Amount", consolas);
       display.draw_hline(0, SSD1306_WIDTH, consolas.height + 1);
@@ -223,6 +232,7 @@ void Interface::render() {
     break;
 
     case ANOTHER_ONE: {
+      display.fill(SSD1306::Black);
       display.set_cursor(0, 0);
       char title[16]; sprintf(title, "(%d) %s", selected_container + 1, spices[selected_spice].name);
       display.draw_string(title, consolas);
@@ -259,6 +269,43 @@ void Interface::render() {
     }
     break;
 
+    case BOWL_MISSING: {
+      display.fill(SSD1306::Black);
+      display.set_cursor((SSD1306_WIDTH - consolas.descriptors[0].width * strlen("Order Aborted")) / 2, 0);
+      display.draw_string("Order Aborted", consolas);
+      display.draw_hline(0, SSD1306_WIDTH, consolas.height + 1);
+
+      display.set_cursor((SSD1306_WIDTH - consolas.descriptors[0].width * strlen("Bowl Missing")) / 2, 2 * consolas.height + 3);
+      display.draw_string("Bowl Missing", consolas);
+    }
+    break;
+
+    case DISPENSING_DONE: {
+      display.fill(SSD1306::Black);
+      display.set_cursor((SSD1306_WIDTH - consolas.descriptors[0].width * strlen("Order")) / 2, consolas.height);
+      display.draw_string("Order", consolas);
+
+      display.set_cursor((SSD1306_WIDTH - consolas.descriptors[0].width * strlen("Complete")) / 2, 2*consolas.height);
+      display.draw_string("Complete", consolas);
+    }
+    break;
+
+    case DISPENSING_DONE_WITH_ISSUES: {
+      display.fill(SSD1306::Black);
+      display.set_cursor((SSD1306_WIDTH - consolas.descriptors[0].width * strlen("Order Complete")) / 2, 0);
+      display.draw_string("Order Complete", consolas);
+      display.draw_hline(0, SSD1306_WIDTH, consolas.height + 1);
+
+      uint8_t start_height = consolas.height + 3;
+
+      display.set_cursor((SSD1306_WIDTH - consolas.descriptors[0].width * strlen("Issues in Silos")) / 2, start_height);
+      display.draw_string("Issues in Silos");
+
+      display.set_cursor((SSD1306_WIDTH - consolas.descriptors[0].width * strlen(issues)) / 2, start_height + consolas.height);
+      display.draw_string(issues);
+
+    }
+    break;
   }
 
   press_handled = true;
@@ -292,6 +339,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         position = 1;
         is_changing_hour = false;
         HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BIN);
+        HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x32F2);
       } else if (position == 1 && !is_changing_hour) {
         is_changing_hour = true;
         position = time.Hours;
@@ -299,6 +347,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         position = 2;
         is_changing_min = false;
         HAL_RTC_SetTime(&hrtc, &time, RTC_FORMAT_BIN);
+        HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x32F2);
       } else if (position == 2 && !is_changing_min) {
         position = time.Minutes;
         is_changing_min = true;
@@ -357,6 +406,15 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
        if (position == 2)
          page = SELECT_CONTAINER;
+    }
+    break;
+
+    case BOWL_MISSING:
+    case DISPENSING_DONE_WITH_ISSUES: {
+      issues[0] = '\0';
+    }
+    case DISPENSING_DONE: {
+      page = IDLE;
     }
     break;
   }
