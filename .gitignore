@@ -1,6 +1,8 @@
 # settings
 .settings/
 *.launch
+.vscode
 
 # build
 Debug
+/Release/

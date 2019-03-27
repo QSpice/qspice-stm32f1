@@ -83,6 +83,8 @@ int Servo::ang_to_pos(int ang) {
 }
 
 void Servo::dispense(int angle, int repetitions) {
+  if (angle < 0 || angle > 100)
+    return;
   int true_angle = angle + initial_ang;
   int angle_delay = angle * Servo::min_delay;
   int overshoot_delay = (true_angle - overshoot_ang) * Servo::min_delay;

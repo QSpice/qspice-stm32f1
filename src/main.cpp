@@ -109,7 +109,7 @@ int main(void) {
     ui.render();
     handle_message_if_needed();
 
-    if (page > 2) {
+    if (page > 2 && page < 8 && !is_processing_order) {
       is_ordering = true;
     } else {
       is_ordering = false;
@@ -118,6 +118,7 @@ int main(void) {
     // Ordering
       if (page == DISPENSING && !is_processing_order) {
         is_processing_order = true;
+        issues[0] = '\0';
         ui.render();
       }
 
@@ -130,6 +131,17 @@ int main(void) {
         if (weight_cnt < MAX_WEIGHT_CNT && should_dispense(order_amounts[curr_location], curr_amount)) {
           dispense();
         } else {
+          if (weight_cnt >= MAX_WEIGHT_CNT) {
+            if (strcmp(issues, "") == 0) {
+              char container[2];
+              sprintf(container, "%d", curr_location + 1);
+              strcpy(issues, container);
+            } else {
+              char container[3];
+              sprintf(container, ",%d", curr_location + 1);
+              strcat(issues, container);
+            }
+          }
           reset_for_next();
         }
 
@@ -242,7 +254,7 @@ bool find_low_angle(float max_delta) {
   } else {
     if (curr_amount > 0.1){
       int adj = (curr_amount / 0.1) * SAFETY;
-      low_angle -= adj;
+      low_angle = max(INITIAL_ANGLE, low_angle - adj);
     }
 
     curr_angle = low_angle;
@@ -257,14 +269,16 @@ void dispense() {
   float order_amount = order_amounts[curr_location];
 
   float delta = curr_amount - prev_amount;
-  float projection = curr_amount + delta * SAFETY;
+  float projection = max(0, curr_amount + delta * SAFETY);
 
+  if (projection > 0) {
   if (projection > order_amount) {
     int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * SAFETY;
     curr_angle = max(low_angle, curr_angle - decrement);
   } else {
     int increment = (order_amount / projection) * ((float)curr_angle / (float)low_angle);
     curr_angle = min(min(curr_angle + increment, curr_angle*3), 100);
+  }
   }
 
   servo->dispense(curr_angle, SHAKES);
@@ -345,10 +359,8 @@ void handle_message_if_needed() {
 
   if (strncmp(rec_buffer, "QUIT", 4) == 0) {
     status = "OK\n";
-    is_processing_order = false;
-    is_dispensing = false;
-    is_calibrated = false;
-    reset_dispenser();
+    reset_state();
+    page = IDLE;
   } else if (is_ordering) {
     status = "INPR\n";
   } else if (is_processing_order) {
@@ -365,6 +377,7 @@ void handle_message_if_needed() {
     parse_order(order);
 
     is_processing_order = true;
+    issues[0] = '\0';
     page = DISPENSING;
   }
 

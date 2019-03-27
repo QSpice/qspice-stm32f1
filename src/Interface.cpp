@@ -23,14 +23,37 @@ static int selected_spice = 0;
 static bool press_handled = true;
 static int selected_amount = 1;
 
-static Spice spices[7] = {
+static Spice spices[30] = {
+    Spice("Anise Seed    ", 2.1),
     Spice("Basil         ", 0.7),
+    Spice("Cardamom      ", 2.0),
+    Spice("Cayenne       ", 2.3),
+    Spice("Celery Salt   ", 4.8),
+    Spice("Chili Flake   ", 2.0),
+    Spice("Chili Powder  ", 2.7),
+    Spice("Coriander     ", 0.5),
     Spice("Cumin         ", 2.0),
+    Spice("Curry Powder  ", 2.0),
+    Spice("Dill Seed     ", 2.1),
+    Spice("Fenugreek Seed", 3.7),
     Spice("Garlic Powder ", 3.2),
-    Spice("Mustard Powder",  2.1),
-    Spice("Oregano       ", 1.0),
-    Spice("Parika        ",  2.3),
-    Spice("Thyme         ", 0.9)
+    Spice("Ginger        ", 1.8),
+    Spice("Cinnamon      ", 2.6),
+    Spice("Mustard Powder", 2.1),
+    Spice("Nutmeg        ", 2.2),
+    Spice("Onion Powder  ", 2.4),
+    Spice("Oregano       ", 0.4),
+    Spice("Parika        ", 2.3),
+    Spice("Parsely       ", 0.4),
+    Spice("Pepper        ", 2.1),
+    Spice("Poppy Seed    ", 1.8),
+    Spice("Rosemary      ", 1.5),
+    Spice("Saffron       ", 1.7),
+    Spice("Sage          ", 1.2),   
+    Spice("Salt          ", 5.5),
+    Spice("Tarragon      ", 0.7),
+    Spice("Thyme         ", 1.0),
+    Spice("Turmeric      ", 0.6)
 };
 
 #define position htim4.Instance->CNT
@@ -168,7 +191,7 @@ void Interface::render() {
     case SELECT_SPICE: {
       display.fill(SSD1306::Black);
       display.set_cursor(0, 0);
-      char title[14]; sprintf(title, "Select Spice(%d)", selected_container);
+      char title[14]; sprintf(title, "Select Spice(%d)", selected_container + 1);
 
       display.draw_string(title, consolas);
       display.draw_hline(0, SSD1306_WIDTH, consolas.height + 1);
@@ -176,14 +199,14 @@ void Interface::render() {
       uint8_t start_height = consolas.height + 3;
       uint8_t rows = 3;
 
-      position = roll_over(position, 1, 8);
+      position = roll_over(position, 1, 31);
 
       int offset = max(0, (int)position - rows);
 
       for (uint32_t i = 1; i <= rows; i++) {
         display.set_cursor(0, start_height + ((i - 1) * consolas.height));
 
-        if (i + offset < 8) {
+        if (i + offset < 31) {
           display.draw_string(spices[i + offset - 1].name, consolas, SSD1306::COLOR::White, (i + offset) == position);
         } else {
           display.draw_string("< Back       ", consolas, SSD1306::COLOR::White, (i + offset) == position);
@@ -371,7 +394,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     break;
 
     case SELECT_SPICE: {
-      if (position == 8) {
+      if (position == 31) {
         page = SELECT_CONTAINER;
       } else {
         page = SELECT_AMOUNT;
