@@ -37,6 +37,7 @@ extern Page page;
 float order_amounts[6] = {0};
 float curr_amount = 0.0;
 float prev_amount = 0.0;
+float prev_projection = 0.0;
 int weight_cnt = 0;
 int low_angle_cnt = 0;
 int curr_angle = INITIAL_ANGLE;
@@ -258,6 +259,7 @@ bool find_low_angle(float max_delta) {
     }
 
     curr_angle = low_angle;
+    prev_projection = curr_amount;
 
     return true;
   }
@@ -269,16 +271,18 @@ void dispense() {
   float order_amount = order_amounts[curr_location];
 
   float delta = curr_amount - prev_amount;
-  float projection = max(0, curr_amount + delta * SAFETY);
+  float projection = curr_amount + delta * SAFETY;
+  float completion = 1 - (order_amount - curr_amount) / 100;
 
-  if (projection > 0) {
+  if (projection < 0) projection = prev_projection;
+  else prev_projection = projection;
+
   if (projection > order_amount) {
     int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * SAFETY;
     curr_angle = max(low_angle, curr_angle - decrement);
   } else {
     int increment = (order_amount / projection) * ((float)curr_angle / (float)low_angle);
-    curr_angle = min(min(curr_angle + increment, curr_angle*3), 100);
-  }
+    curr_angle = min(min(curr_angle + increment, SAFETY * (low_angle / completion)), 100);
   }
 
   servo->dispense(curr_angle, SHAKES);
