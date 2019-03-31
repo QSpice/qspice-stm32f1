@@ -278,11 +278,11 @@ void dispense() {
   else prev_projection = projection;
 
   if (projection > order_amount) {
-    int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * SAFETY;
-    curr_angle = max(low_angle, curr_angle - decrement);
+    int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * SAFETY + 10 * completion;
+    curr_angle = max(low_angle, min(curr_angle - decrement, 3 * (low_angle / completion)));
   } else {
     int increment = (order_amount / projection) * ((float)curr_angle / (float)low_angle);
-    curr_angle = min(min(curr_angle + increment, SAFETY * (low_angle / completion)), 100);
+    curr_angle = min(curr_angle + increment, 100);
   }
 
   servo->dispense(curr_angle, SHAKES);
@@ -297,6 +297,8 @@ void dispense() {
 
   if (curr_amount - prev_amount < WEIGHT_THRESHOLD)
     weight_cnt++;
+  else
+    weight_cnt = 0;
 
   #ifdef DBG_MSG
     trace_printf("weight: %.2f g, angle: %d, projection: %.2f\n", curr_amount, curr_angle, projection);
