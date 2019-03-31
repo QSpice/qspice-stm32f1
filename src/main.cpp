@@ -299,15 +299,21 @@ void dispense() {
   projection[it_nbr] = curr_amount[it_nbr - 1] + delta * SAFETY;
   float completion = 1 - (order_amount - curr_amount[it_nbr - 1]) / 100;
 
+  bool changed = curr_amount[it_nbr - 1] - prev_amount >= WEIGHT_THRESHOLD;
+
   if (projection[it_nbr] < 0) projection[it_nbr] = prev_projection;
   else prev_projection = projection[it_nbr];
 
-  if (projection[it_nbr] > order_amount * 0.95) {
-    int decrement = (projection[it_nbr] / order_amount) * ((float)curr_angle[it_nbr - 1] / (float)low_angle) * SAFETY;
-    curr_angle[it_nbr] = max(low_angle, min(curr_angle[it_nbr - 1] - decrement, SAFETY * (low_angle / completion)));
+  if (changed) {
+    if (projection[it_nbr] > order_amount) {
+      int decrement = (projection[it_nbr] / order_amount) * ((float)curr_angle[it_nbr - 1] / (float)low_angle) * SAFETY * max(SAFETY, (int)projection[it_nbr] - (int)curr_amount[it_nbr-1]);
+      curr_angle[it_nbr] = max(low_angle, curr_angle[it_nbr - 1] - decrement);
+    } else {
+      int increment = (order_amount / projection[it_nbr]) * ((float)curr_angle[it_nbr - 1] / (float)low_angle);
+      curr_angle[it_nbr] = min(curr_angle[it_nbr - 1] + increment, 100);
+    }
   } else {
-    int increment = (order_amount / projection[it_nbr]) * ((float)curr_angle[it_nbr - 1] / (float)low_angle);
-    curr_angle[it_nbr] = min(curr_angle[it_nbr - 1] + increment, 100);
+    curr_angle[it_nbr] = curr_angle[it_nbr-1] + 2;
   }
 
   servo->dispense(curr_angle[it_nbr], SHAKES);
@@ -320,8 +326,11 @@ void dispense() {
         curr_amount[it_nbr] = hx711->get_cal_weight(NUM_WEIGHT_SAMPLES);
   }
 
-  if (curr_amount[it_nbr] - prev_amount < WEIGHT_THRESHOLD)
+  if (curr_amount[it_nbr] - prev_amount < WEIGHT_THRESHOLD) {
     weight_cnt++;
+  } else {
+    weight_cnt = 0;
+  }
 
   #ifdef DBG_MSG
     trace_printf("%d, weight: %.2f g, angle: %d, projection: %.2f\n", it_nbr, curr_amount[it_nbr], curr_angle[it_nbr], projection[it_nbr]);
