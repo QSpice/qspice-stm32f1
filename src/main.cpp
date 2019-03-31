@@ -36,6 +36,7 @@ extern Page page;
 
 float order_amounts[6] = {0};
 float prev_amount = 0.0;
+float prev_projection = 0.0;
 int weight_cnt = 0;
 int low_angle_cnt = 0;
 int low_angle = INITIAL_ANGLE;
@@ -278,6 +279,7 @@ bool find_low_angle(float max_delta) {
     }
 
     curr_angle[it_nbr] = low_angle;
+    prev_projection = curr_amount[it_nbr];
 
     #ifdef DBG_MSG
       trace_printf("%d, weight: %.2f, low angle: %d\n",it_nbr, curr_amount[it_nbr], low_angle);
@@ -294,16 +296,18 @@ void dispense() {
   float order_amount = order_amounts[curr_location];
 
   float delta = curr_amount[it_nbr - 1] - prev_amount;
-  projection[it_nbr] = max(curr_amount[it_nbr], curr_amount[it_nbr - 1] + delta * SAFETY);
+  projection[it_nbr] = curr_amount[it_nbr - 1] + delta * SAFETY;
+  float completion = 1 - (order_amount - curr_amount[it_nbr - 1]) / 100;
 
-  if (projection[it_nbr] > 0) {
-    if (projection[it_nbr] > order_amount) {
-      int decrement = (projection[it_nbr] / order_amount) * ((float)curr_angle[it_nbr - 1] / (float)low_angle) * SAFETY;
-      curr_angle[it_nbr] = max(low_angle, curr_angle[it_nbr - 1] - decrement);
-    } else {
-      int increment = (order_amount / projection[it_nbr]) * ((float)curr_angle[it_nbr - 1] / (float)low_angle);
-      curr_angle[it_nbr] = min(min(curr_angle[it_nbr - 1] + increment, curr_angle[it_nbr - 1]*3), 100);
-    }
+  if (projection[it_nbr] < 0) projection[it_nbr] = prev_projection;
+  else prev_projection = projection[it_nbr];
+
+  if (projection[it_nbr] > order_amount * 0.95) {
+    int decrement = (projection[it_nbr] / order_amount) * ((float)curr_angle[it_nbr - 1] / (float)low_angle) * SAFETY;
+    curr_angle[it_nbr] = max(low_angle, min(curr_angle[it_nbr - 1] - decrement, SAFETY * (low_angle / completion)));
+  } else {
+    int increment = (order_amount / projection[it_nbr]) * ((float)curr_angle[it_nbr - 1] / (float)low_angle);
+    curr_angle[it_nbr] = min(curr_angle[it_nbr - 1] + increment, 100);
   }
 
   servo->dispense(curr_angle[it_nbr], SHAKES);
