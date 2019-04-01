@@ -272,17 +272,22 @@ void dispense() {
 
   float delta = curr_amount - prev_amount;
   float projection = curr_amount + delta * SAFETY;
-  float completion = 1 - (order_amount - curr_amount) / 100;
+
+  bool changed = curr_amount - prev_amount >= WEIGHT_THRESHOLD;
 
   if (projection < 0) projection = prev_projection;
   else prev_projection = projection;
 
-  if (projection > order_amount) {
-    int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * SAFETY + 10 * completion;
-    curr_angle = max(low_angle, min(curr_angle - decrement, 3 * (low_angle / completion)));
+  if (changed) {
+    if (projection > order_amount) {
+      int decrement = (projection / order_amount) * ((float)curr_angle / (float)low_angle) * SAFETY * max(SAFETY, (int)projection - (int)curr_amount);
+      curr_angle = max(low_angle, curr_angle - decrement);
+    } else {
+      int increment = (order_amount / projection) * ((float)curr_angle / (float)low_angle);
+      curr_angle = min(curr_angle + increment, 100);
+    }
   } else {
-    int increment = (order_amount / projection) * ((float)curr_angle / (float)low_angle);
-    curr_angle = min(curr_angle + increment, 100);
+    curr_angle += 2;
   }
 
   servo->dispense(curr_angle, SHAKES);
