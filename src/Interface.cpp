@@ -226,7 +226,7 @@ void Interface::render() {
       char amount_string[8];
 
       if (is_changing_amount) {
-        position = min(max(1, (int)position), 999);
+        position = min(max(1, (int)position), 12);
         selected_amount = position;
       } else {
         position = roll_over(position, 1, 3);
